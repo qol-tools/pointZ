@@ -62,17 +62,43 @@ class CommandService {
     });
   }
   
-  Future<void> keyPress(String key) async {
+  Future<void> keyPress(String key, {bool ctrl = false, bool alt = false, bool shift = false, bool meta = false}) async {
     await sendCommand({
       'type': 'KeyPress',
       'key': key,
+      'modifiers': {
+        'ctrl': ctrl,
+        'alt': alt,
+        'shift': shift,
+        'meta': meta,
+      },
     });
   }
   
-  Future<void> keyRelease(String key) async {
+  Future<void> keyRelease(String key, {bool ctrl = false, bool alt = false, bool shift = false, bool meta = false}) async {
     await sendCommand({
       'type': 'KeyRelease',
       'key': key,
+      'modifiers': {
+        'ctrl': ctrl,
+        'alt': alt,
+        'shift': shift,
+        'meta': meta,
+      },
+    });
+  }
+  
+  Future<void> modifierPress(String modifier) async {
+    await sendCommand({
+      'type': 'ModifierPress',
+      'modifier': modifier,
+    });
+  }
+  
+  Future<void> modifierRelease(String modifier) async {
+    await sendCommand({
+      'type': 'ModifierRelease',
+      'modifier': modifier,
     });
   }
   

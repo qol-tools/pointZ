@@ -72,18 +72,73 @@ class _ControlScreenState extends State<ControlScreen> {
     await _gestureHandler.handleEvent(event);
   }
 
+  bool _isModifierPressed(LogicalKeyboardKey key) {
+    return HardwareKeyboard.instance.logicalKeysPressed.contains(key);
+  }
+
   Future<void> _handleKeyEvent(KeyEvent event) async {
     if (!_isConnected) return;
+
+    final ctrl = _isModifierPressed(LogicalKeyboardKey.controlLeft) || 
+                 _isModifierPressed(LogicalKeyboardKey.controlRight);
+    final alt = _isModifierPressed(LogicalKeyboardKey.altLeft) || 
+                _isModifierPressed(LogicalKeyboardKey.altRight);
+    final shift = _isModifierPressed(LogicalKeyboardKey.shiftLeft) || 
+                  _isModifierPressed(LogicalKeyboardKey.shiftRight);
+    final meta = _isModifierPressed(LogicalKeyboardKey.metaLeft) || 
+                 _isModifierPressed(LogicalKeyboardKey.metaRight);
 
     if (event is KeyDownEvent) {
       final key = _keyEventToString(event);
       if (key != null) {
-        await _keyboardHandler.handleKeyPress(key);
+        await _keyboardHandler.handleKeyPress(
+          key,
+          ctrl: ctrl,
+          alt: alt,
+          shift: shift,
+          meta: meta,
+        );
+      }
+      
+      // Handle modifier keys themselves
+      if (event.logicalKey == LogicalKeyboardKey.controlLeft || 
+          event.logicalKey == LogicalKeyboardKey.controlRight) {
+        await _keyboardHandler.handleModifierPress('ctrl');
+      } else if (event.logicalKey == LogicalKeyboardKey.altLeft || 
+                 event.logicalKey == LogicalKeyboardKey.altRight) {
+        await _keyboardHandler.handleModifierPress('alt');
+      } else if (event.logicalKey == LogicalKeyboardKey.shiftLeft || 
+                 event.logicalKey == LogicalKeyboardKey.shiftRight) {
+        await _keyboardHandler.handleModifierPress('shift');
+      } else if (event.logicalKey == LogicalKeyboardKey.metaLeft || 
+                 event.logicalKey == LogicalKeyboardKey.metaRight) {
+        await _keyboardHandler.handleModifierPress('meta');
       }
     } else if (event is KeyUpEvent) {
       final key = _keyEventToString(event);
       if (key != null) {
-        await _keyboardHandler.handleKeyRelease(key);
+        await _keyboardHandler.handleKeyRelease(
+          key,
+          ctrl: ctrl,
+          alt: alt,
+          shift: shift,
+          meta: meta,
+        );
+      }
+      
+      // Handle modifier keys themselves
+      if (event.logicalKey == LogicalKeyboardKey.controlLeft || 
+          event.logicalKey == LogicalKeyboardKey.controlRight) {
+        await _keyboardHandler.handleModifierRelease('ctrl');
+      } else if (event.logicalKey == LogicalKeyboardKey.altLeft || 
+                 event.logicalKey == LogicalKeyboardKey.altRight) {
+        await _keyboardHandler.handleModifierRelease('alt');
+      } else if (event.logicalKey == LogicalKeyboardKey.shiftLeft || 
+                 event.logicalKey == LogicalKeyboardKey.shiftRight) {
+        await _keyboardHandler.handleModifierRelease('shift');
+      } else if (event.logicalKey == LogicalKeyboardKey.metaLeft || 
+                 event.logicalKey == LogicalKeyboardKey.metaRight) {
+        await _keyboardHandler.handleModifierRelease('meta');
       }
     }
   }

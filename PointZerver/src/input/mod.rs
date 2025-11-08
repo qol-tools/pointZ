@@ -4,7 +4,7 @@ mod unix;
 mod windows;
 
 use anyhow::Result;
-use crate::domain::models::Command;
+use crate::domain::models::{Command, ModifierKeys};
 
 #[cfg(unix)]
 use unix::InputHandlerImpl;
@@ -33,8 +33,10 @@ impl InputHandler {
             Command::MouseDown { button } => self.inner.mouse_down(button).await,
             Command::MouseUp { button } => self.inner.mouse_up(button).await,
             Command::MouseScroll { delta_x, delta_y } => self.inner.mouse_scroll(delta_x, delta_y).await,
-            Command::KeyPress { key } => self.inner.key_press(&key).await,
-            Command::KeyRelease { key } => self.inner.key_release(&key).await,
+            Command::KeyPress { key, modifiers } => self.inner.key_press(&key, &modifiers).await,
+            Command::KeyRelease { key, modifiers } => self.inner.key_release(&key, &modifiers).await,
+            Command::ModifierPress { modifier } => self.inner.modifier_press(&modifier).await,
+            Command::ModifierRelease { modifier } => self.inner.modifier_release(&modifier).await,
         }
     }
 }
@@ -46,7 +48,9 @@ pub(crate) trait InputHandlerTrait: Send + Sync {
     async fn mouse_down(&self, button: u8) -> Result<()>;
     async fn mouse_up(&self, button: u8) -> Result<()>;
     async fn mouse_scroll(&self, delta_x: f64, delta_y: f64) -> Result<()>;
-    async fn key_press(&self, key: &str) -> Result<()>;
-    async fn key_release(&self, key: &str) -> Result<()>;
+    async fn key_press(&self, key: &str, modifiers: &ModifierKeys) -> Result<()>;
+    async fn key_release(&self, key: &str, modifiers: &ModifierKeys) -> Result<()>;
+    async fn modifier_press(&self, modifier: &str) -> Result<()>;
+    async fn modifier_release(&self, modifier: &str) -> Result<()>;
 }
 

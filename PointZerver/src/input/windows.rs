@@ -1,5 +1,6 @@
 use anyhow::Result;
 use crate::input::InputHandlerTrait;
+use crate::domain::models::ModifierKeys;
 
 pub struct InputHandlerImpl;
 
@@ -41,16 +42,27 @@ impl InputHandlerTrait for InputHandlerImpl {
         Ok(())
     }
     
-    async fn key_press(&self, key: &str) -> Result<()> {
+    async fn key_press(&self, key: &str, _modifiers: &ModifierKeys) -> Result<()> {
         // TODO: Implement Windows key press
         println!("Key press: {}", key);
+        Ok(())
+    }
+    
+    async fn key_release(&self, key: &str, _modifiers: &ModifierKeys) -> Result<()> {
+        // TODO: Implement Windows key release
         println!("Key release: {}", key);
         Ok(())
     }
     
-    async fn key_release(&self, key: &str) -> Result<()> {
-        // TODO: Implement Windows key release
-        println!("Key release: {}", key);
+    async fn modifier_press(&self, modifier: &str) -> Result<()> {
+        // TODO: Implement Windows modifier press
+        println!("Modifier press: {}", modifier);
+        Ok(())
+    }
+    
+    async fn modifier_release(&self, modifier: &str) -> Result<()> {
+        // TODO: Implement Windows modifier release
+        println!("Modifier release: {}", modifier);
         Ok(())
     }
 }

@@ -1,6 +1,7 @@
 use anyhow::Result;
 use crate::input::InputHandlerTrait;
 use crate::domain::config::ServerConfig;
+use crate::domain::models::ModifierKeys;
 use rdev::{simulate, Button, Key, EventType, SimulateError};
 use std::time::Duration;
 use std::sync::Mutex;
@@ -10,12 +11,14 @@ use x11::xlib;
 
 pub struct InputHandlerImpl {
     current_pos: Mutex<Option<(f64, f64)>>,
+    modifier_state: Mutex<ModifierKeys>,
 }
 
 impl InputHandlerImpl {
     pub fn new() -> Result<Self> {
         Ok(Self {
             current_pos: Mutex::new(None),
+            modifier_state: Mutex::new(ModifierKeys::default()),
         })
     }
 
@@ -144,17 +147,112 @@ impl InputHandlerTrait for InputHandlerImpl {
         Ok(())
     }
     
-    async fn key_press(&self, key: &str) -> Result<()> {
+    async fn key_press(&self, key: &str, modifiers: &ModifierKeys) -> Result<()> {
+        // Apply modifiers first
+        Self::apply_modifiers(&self.modifier_state, modifiers)?;
+        
         if let Some(key_enum) = string_to_key(key) {
             send_event(EventType::KeyPress(key_enum))?;
         }
         Ok(())
     }
     
-    async fn key_release(&self, key: &str) -> Result<()> {
+    async fn key_release(&self, key: &str, _modifiers: &ModifierKeys) -> Result<()> {
         if let Some(key_enum) = string_to_key(key) {
             send_event(EventType::KeyRelease(key_enum))?;
         }
+        Ok(())
+    }
+    
+    async fn modifier_press(&self, modifier: &str) -> Result<()> {
+        let mut state = self.modifier_state.lock().unwrap();
+        match modifier.to_lowercase().as_str() {
+            "ctrl" | "control" => {
+                state.ctrl = true;
+                send_event(EventType::KeyPress(Key::ControlLeft))?;
+            }
+            "alt" => {
+                state.alt = true;
+                send_event(EventType::KeyPress(Key::Alt))?;
+            }
+            "shift" => {
+                state.shift = true;
+                send_event(EventType::KeyPress(Key::ShiftLeft))?;
+            }
+            "meta" | "super" | "cmd" => {
+                state.meta = true;
+                send_event(EventType::KeyPress(Key::MetaLeft))?;
+            }
+            _ => {}
+        }
+        Ok(())
+    }
+    
+    async fn modifier_release(&self, modifier: &str) -> Result<()> {
+        let mut state = self.modifier_state.lock().unwrap();
+        match modifier.to_lowercase().as_str() {
+            "ctrl" | "control" => {
+                state.ctrl = false;
+                send_event(EventType::KeyRelease(Key::ControlLeft))?;
+            }
+            "alt" => {
+                state.alt = false;
+                send_event(EventType::KeyRelease(Key::Alt))?;
+            }
+            "shift" => {
+                state.shift = false;
+                send_event(EventType::KeyRelease(Key::ShiftLeft))?;
+            }
+            "meta" | "super" | "cmd" => {
+                state.meta = false;
+                send_event(EventType::KeyRelease(Key::MetaLeft))?;
+            }
+            _ => {}
+        }
+        Ok(())
+    }
+}
+
+impl InputHandlerImpl {
+    fn apply_modifiers(state: &Mutex<ModifierKeys>, modifiers: &ModifierKeys) -> Result<()> {
+        let mut state_guard = state.lock().unwrap();
+        
+        // Press modifiers that need to be pressed
+        if modifiers.ctrl && !state_guard.ctrl {
+            send_event(EventType::KeyPress(Key::ControlLeft))?;
+            state_guard.ctrl = true;
+        }
+        if modifiers.alt && !state_guard.alt {
+            send_event(EventType::KeyPress(Key::Alt))?;
+            state_guard.alt = true;
+        }
+        if modifiers.shift && !state_guard.shift {
+            send_event(EventType::KeyPress(Key::ShiftLeft))?;
+            state_guard.shift = true;
+        }
+        if modifiers.meta && !state_guard.meta {
+            send_event(EventType::KeyPress(Key::MetaLeft))?;
+            state_guard.meta = true;
+        }
+        
+        // Release modifiers that shouldn't be pressed
+        if !modifiers.ctrl && state_guard.ctrl {
+            send_event(EventType::KeyRelease(Key::ControlLeft))?;
+            state_guard.ctrl = false;
+        }
+        if !modifiers.alt && state_guard.alt {
+            send_event(EventType::KeyRelease(Key::Alt))?;
+            state_guard.alt = false;
+        }
+        if !modifiers.shift && state_guard.shift {
+            send_event(EventType::KeyRelease(Key::ShiftLeft))?;
+            state_guard.shift = false;
+        }
+        if !modifiers.meta && state_guard.meta {
+            send_event(EventType::KeyRelease(Key::MetaLeft))?;
+            state_guard.meta = false;
+        }
+        
         Ok(())
     }
 }

@@ -5,12 +5,20 @@ class KeyboardHandler {
 
   KeyboardHandler(this._executor);
 
-  Future<void> handleKeyPress(String key) async {
-    await _executor.keyPress(key);
+  Future<void> handleKeyPress(String key, {bool ctrl = false, bool alt = false, bool shift = false, bool meta = false}) async {
+    await _executor.keyPress(key, ctrl: ctrl, alt: alt, shift: shift, meta: meta);
   }
 
-  Future<void> handleKeyRelease(String key) async {
-    await _executor.keyRelease(key);
+  Future<void> handleKeyRelease(String key, {bool ctrl = false, bool alt = false, bool shift = false, bool meta = false}) async {
+    await _executor.keyRelease(key, ctrl: ctrl, alt: alt, shift: shift, meta: meta);
+  }
+
+  Future<void> handleModifierPress(String modifier) async {
+    await _executor.modifierPress(modifier);
+  }
+
+  Future<void> handleModifierRelease(String modifier) async {
+    await _executor.modifierRelease(modifier);
   }
 }
 
