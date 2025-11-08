@@ -90,11 +90,12 @@ class MoveHandler {
         if (distance > 0) {
           final velocity = distance / timeDelta; // pixels per millisecond
           
-          // Apply acceleration: faster movement = higher multiplier
-          // Linear interpolation between min and max acceleration
+          // Apply acceleration with smoother curve: use square root for less aggressive scaling
+          // This prevents extreme acceleration at high speeds
           final velocityRatio = (velocity / GestureConfig.accelerationThreshold).clamp(0.0, 1.0);
+          final smoothedRatio = sqrt(velocityRatio); // Square root curve for smoother acceleration
           acceleration = GestureConfig.minAcceleration + 
-              (GestureConfig.maxAcceleration - GestureConfig.minAcceleration) * velocityRatio;
+              (GestureConfig.maxAcceleration - GestureConfig.minAcceleration) * smoothedRatio;
         }
       }
     }
