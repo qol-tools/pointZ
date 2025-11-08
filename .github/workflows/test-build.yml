@@ -4,9 +4,19 @@ on:
   push:
     branches:
       - main
+    paths:
+      - 'PointZerver/**'
+      - '.github/workflows/test-build.yml'
+      - 'Cargo.toml'
+      - 'Cargo.lock'
   pull_request:
     branches:
       - main
+    paths:
+      - 'PointZerver/**'
+      - '.github/workflows/test-build.yml'
+      - 'Cargo.toml'
+      - 'Cargo.lock'
 
 jobs:
   test-build:
