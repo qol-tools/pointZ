@@ -1,7 +1,14 @@
-.PHONY: help server-build server-run server-check server-clean client-get client-run client-build client-build-apk client-build-apk-debug client-install client-build-install client-build-install-debug client-devices client-logs client-clean run build clean server
+.PHONY: help setup check server-build server-run server-check server-clean server-release client-get client-run client-build client-build-apk client-build-apk-debug client-install client-build-install client-build-install-debug client-devices client-logs client-clean run build clean server
 
 help:
 	@echo "PointZ - Client/Server Commands"
+	@echo ""
+	@echo "Setup:"
+	@echo "  make setup          - Run setup script (checks dependencies, installs deps)"
+	@echo "  make check          - Check if all dependencies are installed"
+	@echo ""
+	@echo "Distribution:"
+	@echo "  make server-release - Build release binary for distribution"
 	@echo ""
 	@echo "Quick shortcuts (run from root):"
 	@echo "  make run              - Run Flutter app (hot reload: press 'r', hot restart: press 'R')"
@@ -27,9 +34,28 @@ help:
 	@echo "  make client-logs      - Stream logs from connected device"
 	@echo "  make client-clean     - Clean Flutter build"
 
+# Setup
+setup:
+	@./setup.sh
+
+# Health check
+check:
+	@echo "Checking dependencies..."
+	@command -v cargo >/dev/null 2>&1 && echo "✓ Rust/cargo installed" || echo "✗ Rust/cargo not found"
+	@command -v flutter >/dev/null 2>&1 && echo "✓ Flutter installed" || echo "✗ Flutter not found"
+	@command -v git >/dev/null 2>&1 && echo "✓ Git installed" || echo "✗ Git not found"
+	@echo ""
+	@echo "Checking project dependencies..."
+	@cd PointZerver && cargo check --quiet 2>/dev/null && echo "✓ Server dependencies OK" || echo "✗ Server dependencies missing (run: make setup)"
+	@cd PointZ && flutter pub get --quiet >/dev/null 2>&1 && echo "✓ Client dependencies OK" || echo "✗ Client dependencies missing (run: make setup)"
+
 # Server commands
 server-build:
 	cd PointZerver && cargo build --release
+
+server-release: server-build
+	@echo "Release binary built at: PointZerver/target/release/pointzerver"
+	@echo "Copy this binary to distribute to end users."
 
 server-run:
 	cd PointZerver && cargo build && cargo run

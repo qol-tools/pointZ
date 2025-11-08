@@ -2,6 +2,34 @@
 
 Mobile app for controlling your PC cursor from Android/iOS.
 
+## End-User Setup (Simple)
+
+**On PC:**
+1. Download PointZ server binary for your OS
+2. Run it → QR code appears in terminal
+3. Scan QR code with phone → downloads app
+4. App auto-discovers and connects
+
+**That's it.** No configuration needed.
+
+## Developer Setup
+
+**One command setup:**
+```bash
+./setup.sh
+# or
+make setup
+```
+
+**Check setup:**
+```bash
+make check  # Verify all dependencies are installed
+```
+
+**Manual setup:**
+- **Rust**: Install from [rustup.rs](https://rustup.rs/)
+- **Flutter**: Install from [flutter.dev](https://docs.flutter.dev/get-started/install)
+
 ## Quick Start
 
 **Server (PC):**
@@ -13,16 +41,6 @@ make server  # Builds and runs on port 45454/45455
 ```bash
 make run  # Runs Flutter app with hot reload
 ```
-
-## Commands
-
-See `make help` for all available commands.
-
-**Common:**
-- `make server` - Run server
-- `make run` - Run Flutter app
-- `make build` - Build debug APK
-- `make clean` - Clean Flutter build
 
 ## Usage
 
@@ -36,6 +54,16 @@ See `make help` for all available commands.
 - Two fingers: Right click/Scroll
 - Three fingers: Middle click
 - Double tap: Select/Drag
+
+## Commands
+
+See `make help` for all available commands.
+
+**Common:**
+- `make server` - Run server
+- `make run` - Run Flutter app
+- `make build` - Build debug APK
+- `make clean` - Clean Flutter build
 
 ## Architecture
 
