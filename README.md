@@ -2,83 +2,53 @@
 
 Mobile app for controlling your PC cursor from Android/iOS.
 
-## End-User Setup (Simple)
+## Quick Start
 
 **On PC:**
-1. Download PointZ server binary for your OS
-2. Run it → QR code appears in terminal
-3. Scan QR code with phone → downloads app
-4. App auto-discovers and connects
+1. Download the PointZ server binary for your operating system from the [Releases page](https://github.com/KMRH47/pointZ-new/releases/latest)
+2. Run the binary (it will appear in your system tray)
+3. Right-click the tray icon → "Show QR Code"
+4. Scan the QR code with your phone to download the mobile app
+5. The app will auto-discover and connect to your server
 
 **That's it.** No configuration needed.
 
-## Developer Setup
+## Features
 
-**One command setup:**
-```bash
-./setup.sh
-# or
-make setup
-```
-
-**Linux GUI dependencies (required for system tray):**
-```bash
-# Ubuntu/Debian
-sudo apt install libgtk-3-dev libgdk-pixbuf2.0-dev libatk1.0-dev libpango1.0-dev libcairo2-dev libglib2.0-dev libwebkit2gtk-4.1-dev libayatana-appindicator3-dev libx11-dev libxcb1-dev libxkbcommon-dev libxkbcommon-x11-dev libxdo-dev pkg-config
-
-# Fedora
-sudo dnf install gtk3-devel gdk-pixbuf2-devel atk-devel pango-devel cairo-devel glib2-devel webkit2gtk3-devel libappindicator-gtk3-devel libX11-devel libxcb-devel libxkbcommon-devel pkg-config
-
-# Arch
-sudo pacman -S gtk3 gdk-pixbuf2 atk pango cairo glib2 webkit2gtk libappindicator-gtk3 libx11 libxcb libxkbcommon pkg-config
-```
-
-**Check setup:**
-```bash
-make check  # Verify all dependencies are installed
-```
-
-**Manual setup:**
-- **Rust**: Install from [rustup.rs](https://rustup.rs/)
-- **Flutter**: Install from [flutter.dev](https://docs.flutter.dev/get-started/install)
-
-## Quick Start
-
-**Server (PC):**
-```bash
-make server  # Builds and runs on port 45454/45455
-```
-
-**Client (Mobile):**
-```bash
-make run  # Runs Flutter app with hot reload
-```
+- **System Tray Integration**: Server runs in the background without a console window
+- **QR Code Download**: Easy app installation via QR code scan
+- **Auto-Discovery**: Automatically finds the server on your local network
+- **Cross-Platform**: Works on Linux, Windows, and macOS
 
 ## Usage
 
-1. Start server: `make server`
-2. Run app: `make run` (or install APK manually)
-3. App auto-discovers server on same Wi-Fi
-4. Tap "Connect" to control
+**Server:**
+- Runs automatically in the system tray after starting
+- Right-click the tray icon for options:
+  - **Show QR Code**: Display QR code for app download
+  - **Quit**: Stop the server
+
+**Mobile App:**
+- Automatically discovers servers on the same Wi-Fi network
+- Tap "Connect" to start controlling your PC
 
 **Gestures:**
-- One finger: Move/Click
-- Two fingers: Right click/Scroll
+- One finger: Move cursor / Click
+- Two fingers: Right click / Scroll
 - Three fingers: Middle click
-- Double tap: Select/Drag
+- Double tap: Select / Drag
 
-## Commands
+## Downloads
 
-See `make help` for all available commands.
+Get the latest server binary from the [Releases page](https://github.com/KMRH47/pointZ-new/releases/latest).
 
-**Common:**
-- `make server` - Run server
-- `make run` - Run Flutter app
-- `make build` - Build debug APK
-- `make clean` - Clean Flutter build
+The releases page automatically detects your platform and shows the correct download for:
+- Linux (x86_64)
+- Windows (x86_64)
+- macOS (Intel)
+- macOS (Apple Silicon)
 
-## Architecture
+## Requirements
 
-- **PointZerver**: Rust UDP server (ports 45454/45455)
-- **PointZ**: Flutter mobile app
-- SOLID architecture with feature-based structure
+- PC and mobile device on the same Wi-Fi network
+- No firewall configuration needed (uses local network discovery)
