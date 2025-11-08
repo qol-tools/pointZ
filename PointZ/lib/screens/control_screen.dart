@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'dart:io';
 import '../services/command_service.dart';
 import '../features/gesture/gesture_handler.dart';
 import '../features/gesture/gesture_detector.dart';
 import '../features/mouse_control/implementations/command_service_executor.dart';
+import '../features/keyboard/keyboard_handler.dart';
+import '../features/keyboard/implementations/command_service_keyboard_executor.dart';
 
 class ControlScreen extends StatefulWidget {
   final InternetAddress serverAddress;
@@ -21,6 +24,11 @@ class _ControlScreenState extends State<ControlScreen> {
   late CommandService _commandService;
   late GestureHandler _gestureHandler;
   late FlutterGestureConverter _gestureConverter;
+  late KeyboardHandler _keyboardHandler;
+  final FocusNode _physicalKeyboardFocusNode = FocusNode();
+  final FocusNode _textFieldFocusNode = FocusNode();
+  final TextEditingController _textController = TextEditingController();
+  String _previousText = '';
   bool _isConnected = false;
 
   @override
@@ -28,8 +36,10 @@ class _ControlScreenState extends State<ControlScreen> {
     super.initState();
     _commandService = CommandService(widget.serverAddress);
     final executor = CommandServiceExecutor(_commandService);
+    final keyboardExecutor = CommandServiceKeyboardExecutor(_commandService);
     _gestureHandler = GestureHandler(executor);
     _gestureConverter = FlutterGestureConverter();
+    _keyboardHandler = KeyboardHandler(keyboardExecutor);
     _connect();
   }
 
@@ -62,46 +72,132 @@ class _ControlScreenState extends State<ControlScreen> {
     await _gestureHandler.handleEvent(event);
   }
 
+  Future<void> _handleKeyEvent(KeyEvent event) async {
+    if (!_isConnected) return;
+
+    if (event is KeyDownEvent) {
+      final key = _keyEventToString(event);
+      if (key != null) {
+        await _keyboardHandler.handleKeyPress(key);
+      }
+    } else if (event is KeyUpEvent) {
+      final key = _keyEventToString(event);
+      if (key != null) {
+        await _keyboardHandler.handleKeyRelease(key);
+      }
+    }
+  }
+
+  String? _keyEventToString(KeyEvent event) {
+    if (event.logicalKey == LogicalKeyboardKey.backspace) {
+      return '\x08';
+    } else if (event.logicalKey == LogicalKeyboardKey.enter ||
+        event.logicalKey == LogicalKeyboardKey.numpadEnter) {
+      return '\n';
+    } else if (event.logicalKey == LogicalKeyboardKey.tab) {
+      return '\t';
+    } else if (event.logicalKey == LogicalKeyboardKey.space) {
+      return ' ';
+    } else if (event.character != null && event.character!.isNotEmpty) {
+      return event.character;
+    } else if (event.logicalKey.keyLabel.length == 1) {
+      return event.logicalKey.keyLabel;
+    }
+    return null;
+  }
+
+  Future<void> _handleTextInput(String text) async {
+    if (!_isConnected) return;
+    
+    // Only process new characters
+    if (text.length > _previousText.length) {
+      final newChars = text.substring(_previousText.length);
+      for (final char in newChars.runes) {
+        final key = String.fromCharCode(char);
+        await _keyboardHandler.handleKeyPress(key);
+        await Future.delayed(const Duration(milliseconds: 10));
+        await _keyboardHandler.handleKeyRelease(key);
+      }
+    } else if (text.length < _previousText.length) {
+      // Handle backspace
+      await _keyboardHandler.handleKeyPress('\x08');
+      await Future.delayed(const Duration(milliseconds: 10));
+      await _keyboardHandler.handleKeyRelease('\x08');
+    }
+    
+    _previousText = text;
+  }
+
   @override
   void dispose() {
+    _physicalKeyboardFocusNode.dispose();
+    _textFieldFocusNode.dispose();
+    _textController.dispose();
     _commandService.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: Text('Control - ${widget.serverAddress.address}'),
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back),
-          onPressed: () => Navigator.pop(context),
+    return KeyboardListener(
+      focusNode: _physicalKeyboardFocusNode,
+      onKeyEvent: _handleKeyEvent,
+      child: Scaffold(
+        appBar: AppBar(
+          title: Text('Control - ${widget.serverAddress.address}'),
+          leading: IconButton(
+            icon: const Icon(Icons.arrow_back),
+            onPressed: () => Navigator.pop(context),
+          ),
         ),
-      ),
-      body: GestureDetector(
-        onScaleStart: _onScaleStart,
-        onScaleUpdate: _onScaleUpdate,
-        onScaleEnd: _onScaleEnd,
-        child: Container(
-          color: Colors.grey[200],
-          child: Center(
+        body: GestureDetector(
+          onScaleStart: _onScaleStart,
+          onScaleUpdate: _onScaleUpdate,
+          onScaleEnd: _onScaleEnd,
+          child: Container(
+            color: Colors.grey[200],
             child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Icon(
-                  _isConnected ? Icons.check_circle : Icons.error,
-                  size: 64,
-                  color: _isConnected ? Colors.green : Colors.red,
+                Expanded(
+                  child: Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(
+                          _isConnected ? Icons.check_circle : Icons.error,
+                          size: 64,
+                          color: _isConnected ? Colors.green : Colors.red,
+                        ),
+                        const SizedBox(height: 16),
+                        Text(
+                          _isConnected ? 'Connected' : 'Disconnected',
+                          style: Theme.of(context).textTheme.titleLarge,
+                        ),
+                        const SizedBox(height: 32),
+                        const Text(
+                          'One finger: Move/Click\nTwo fingers: Right click/Scroll\nThree fingers: Middle click\nDouble tap: Select/Drag',
+                          textAlign: TextAlign.center,
+                        ),
+                      ],
+                    ),
+                  ),
                 ),
-                const SizedBox(height: 16),
-                Text(
-                  _isConnected ? 'Connected' : 'Disconnected',
-                  style: Theme.of(context).textTheme.titleLarge,
-                ),
-                const SizedBox(height: 32),
-                const Text(
-                  'One finger: Move/Click\nTwo fingers: Right click/Scroll\nThree fingers: Middle click\nDouble tap: Select/Drag',
-                  textAlign: TextAlign.center,
+                Padding(
+                  padding: const EdgeInsets.all(16.0),
+                  child: TextField(
+                    controller: _textController,
+                    focusNode: _textFieldFocusNode,
+                    decoration: const InputDecoration(
+                      hintText: 'Type here to send keyboard input...',
+                      border: OutlineInputBorder(),
+                    ),
+                    onSubmitted: (value) {
+                      _handleTextInput(value);
+                      _textController.clear();
+                      _previousText = '';
+                    },
+                    onChanged: _handleTextInput,
+                  ),
                 ),
               ],
             ),
