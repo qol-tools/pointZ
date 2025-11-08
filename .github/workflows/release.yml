@@ -113,6 +113,19 @@ jobs:
         with:
           path: artifacts
 
+      - name: Prepare release files
+        shell: bash
+        run: |
+          mkdir -p release_files
+          # Copy artifacts from their subdirectories to release_files
+          for artifact_dir in artifacts/*/; do
+            if [ -d "$artifact_dir" ]; then
+              cp "$artifact_dir"* release_files/ 2>/dev/null || true
+            fi
+          done
+          echo "Release files:"
+          ls -lh release_files/
+
       - name: Determine version
         id: version
         shell: bash
@@ -153,11 +166,7 @@ jobs:
             - Server runs in background (system tray)
             - No console window needed
             - Right-click tray icon for options
-          files: |
-            artifacts/pointzerver-linux-x86_64
-            artifacts/pointzerver-windows-x86_64.exe
-            artifacts/pointzerver-macos-x86_64
-            artifacts/pointzerver-macos-aarch64
+          files: release_files/*
           draft: false
           prerelease: false
 
