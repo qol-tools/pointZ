@@ -1,0 +1,16 @@
+pub struct ServerConfig;
+
+impl ServerConfig {
+    pub const DISCOVERY_PORT: u16 = 45454;
+    pub const COMMAND_PORT: u16 = 45455;
+    pub const DISCOVER_MESSAGE: &'static str = "DISCOVER";
+    pub const SERVER_RESPONSE: &'static str = "POINTZ_SERVER";
+    pub const DISCOVERY_BUFFER_SIZE: usize = 1024;
+    pub const COMMAND_BUFFER_SIZE: usize = 4096;
+    
+    // Input simulation delays
+    pub const MOUSE_CLICK_DELAY_MS: u64 = 10;
+    pub const FALLBACK_SCREEN_WIDTH: f64 = 1920.0;
+    pub const FALLBACK_SCREEN_HEIGHT: f64 = 1080.0;
+}
+
