@@ -2,11 +2,14 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'dart:io';
 import '../services/command_service.dart';
+import '../services/settings_service.dart';
 import '../features/gesture/gesture_handler.dart';
 import '../features/gesture/gesture_detector.dart';
+import '../features/gesture/config/gesture_config.dart';
 import '../features/mouse_control/implementations/command_service_executor.dart';
 import '../features/keyboard/keyboard_handler.dart';
 import '../features/keyboard/implementations/command_service_keyboard_executor.dart';
+import 'settings_screen.dart';
 
 class ControlScreen extends StatefulWidget {
   final InternetAddress serverAddress;
@@ -25,6 +28,8 @@ class _ControlScreenState extends State<ControlScreen> {
   late GestureHandler _gestureHandler;
   late FlutterGestureConverter _gestureConverter;
   late KeyboardHandler _keyboardHandler;
+  late AppSettings _settings;
+  late GestureConfig _gestureConfig;
   final FocusNode _physicalKeyboardFocusNode = FocusNode();
   final FocusNode _textFieldFocusNode = FocusNode();
   final TextEditingController _textController = TextEditingController();
@@ -34,13 +39,24 @@ class _ControlScreenState extends State<ControlScreen> {
   @override
   void initState() {
     super.initState();
+    _initializeSettings();
+  }
+
+  Future<void> _initializeSettings() async {
+    _settings = AppSettings();
+    await _settings.load();
+    _gestureConfig = GestureConfig(_settings);
+    _initializeHandlers();
+    _connect();
+  }
+
+  void _initializeHandlers() {
     _commandService = CommandService(widget.serverAddress);
     final executor = CommandServiceExecutor(_commandService);
     final keyboardExecutor = CommandServiceKeyboardExecutor(_commandService);
-    _gestureHandler = GestureHandler(executor);
+    _gestureHandler = GestureHandler(executor, _gestureConfig);
     _gestureConverter = FlutterGestureConverter();
     _keyboardHandler = KeyboardHandler(keyboardExecutor);
-    _connect();
   }
 
   Future<void> _connect() async {
@@ -204,6 +220,24 @@ class _ControlScreenState extends State<ControlScreen> {
             icon: const Icon(Icons.arrow_back),
             onPressed: () => Navigator.pop(context),
           ),
+          actions: [
+            IconButton(
+              icon: const Icon(Icons.settings),
+              tooltip: 'Settings',
+              onPressed: () async {
+                await Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => SettingsScreen(settings: _settings),
+                  ),
+                );
+                // Reload settings and recreate gesture handler with new config
+                await _settings.load();
+                _gestureConfig = GestureConfig(_settings);
+                _initializeHandlers();
+              },
+            ),
+          ],
         ),
         body: GestureDetector(
           onScaleStart: _onScaleStart,

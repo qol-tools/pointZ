@@ -8,8 +8,9 @@ import '../../mouse_control/interfaces/mouse_command_executor.dart';
 class PointerHandler {
   final GestureState _state;
   final MouseCommandExecutor _executor;
+  final GestureConfig _config;
 
-  PointerHandler(this._state, this._executor);
+  PointerHandler(this._state, this._executor, this._config);
 
   Future<void> handleDown(GestureEvent event) async {
     // Cancel any pending single-click timer when two-finger gesture starts
@@ -42,17 +43,17 @@ class PointerHandler {
       
       // Set cooldown IMMEDIATELY before sending click to block all subsequent events
       _state.rightClickCooldownUntil = DateTime.now().add(
-        Duration(milliseconds: GestureConfig.rightClickCooldownMs),
+        Duration(milliseconds: _config.rightClickCooldownMs),
       );
       _state.rightClickJustSent = true;
       
       // Use mouseDown + mouseUp with delay
       await _executor.mouseDown(button);
-      await Future.delayed(Duration(milliseconds: GestureConfig.rightClickButtonHoldMs));
+      await Future.delayed(Duration(milliseconds: _config.rightClickButtonHoldMs));
       await _executor.mouseUp(button);
       
       // Reset the flag after cooldown
-      Future.delayed(Duration(milliseconds: GestureConfig.rightClickCooldownMs), () {
+      Future.delayed(Duration(milliseconds: _config.rightClickCooldownMs), () {
         _state.rightClickJustSent = false;
         // Only reset previousTapAction after cooldown completes
         _state.previousTapAction = TouchAction.none;

@@ -12,16 +12,17 @@ import '../mouse_control/interfaces/mouse_command_executor.dart';
 class GestureHandler {
   final GestureState _state;
   final MouseCommandExecutor _executor;
+  final GestureConfig _config;
   late final DownHandler _downHandler;
   late final UpHandler _upHandler;
   late final MoveHandler _moveHandler;
   late final PointerHandler _pointerHandler;
 
-  GestureHandler(this._executor) : _state = GestureState() {
+  GestureHandler(this._executor, this._config) : _state = GestureState() {
     _downHandler = DownHandler(_state, _executor, _startDoubleClickWindow);
     _upHandler = UpHandler(_state, _executor);
-    _moveHandler = MoveHandler(_state, _executor);
-    _pointerHandler = PointerHandler(_state, _executor);
+    _moveHandler = MoveHandler(_state, _executor, _config);
+    _pointerHandler = PointerHandler(_state, _executor, _config);
   }
 
   /// Processes a gesture event and routes it to the appropriate handler
@@ -67,7 +68,7 @@ class GestureHandler {
 
   void _startDoubleClickWindow() {
     _state.canDoubleClick = true;
-    Future.delayed(Duration(milliseconds: GestureConfig.doubleTapDelayMs), () {
+    Future.delayed(Duration(milliseconds: _config.doubleTapDelayMs), () {
       // Block single click if we're in right-click cooldown
       if (_state.isInRightClickCooldown()) {
         _state.waitingForSecondTap = false;
