@@ -1,7 +1,9 @@
 #[cfg(target_os = "linux")]
 use gtk::{prelude::*, glib};
 use tokio::sync::mpsc;
+#[cfg(target_os = "linux")]
 use qrcode::QrCode;
+#[cfg(target_os = "linux")]
 use image::Rgb;
 
 #[cfg(target_os = "linux")]

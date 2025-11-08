@@ -1,13 +1,18 @@
-#[cfg(unix)]
+#[cfg(target_os = "linux")]
 mod unix;
+#[cfg(target_os = "macos")]
+mod macos;
 #[cfg(windows)]
 mod windows;
 
 use anyhow::Result;
 use crate::domain::models::{Command, ModifierKeys};
 
-#[cfg(unix)]
+#[cfg(target_os = "linux")]
 use unix::InputHandlerImpl;
+
+#[cfg(target_os = "macos")]
+use macos::InputHandlerImpl;
 
 #[cfg(windows)]
 use windows::InputHandlerImpl;

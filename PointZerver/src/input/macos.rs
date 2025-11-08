@@ -6,9 +6,6 @@ use rdev::{simulate, Button, Key, EventType, SimulateError};
 use std::time::Duration;
 use std::sync::Mutex;
 
-#[cfg(target_os = "linux")]
-use x11::xlib;
-
 pub struct InputHandlerImpl {
     current_pos: Mutex<Option<(f64, f64)>>,
     modifier_state: Mutex<ModifierKeys>,
@@ -23,35 +20,9 @@ impl InputHandlerImpl {
     }
 
     fn get_cursor_position() -> Option<(f64, f64)> {
-        unsafe {
-            let display = xlib::XOpenDisplay(std::ptr::null());
-            if display.is_null() {
-                return None;
-            }
-
-            let mut root = 0;
-            let mut child = 0;
-            let mut root_x = 0;
-            let mut root_y = 0;
-            let mut win_x = 0;
-            let mut win_y = 0;
-            let mut mask = 0;
-
-            xlib::XQueryPointer(
-                display,
-                xlib::XRootWindow(display, xlib::XDefaultScreen(display)),
-                &mut root,
-                &mut child,
-                &mut root_x,
-                &mut root_y,
-                &mut win_x,
-                &mut win_y,
-                &mut mask,
-            );
-
-            xlib::XCloseDisplay(display);
-            Some((root_x as f64, root_y as f64))
-        }
+        // macOS doesn't have X11, use fallback
+        // rdev doesn't provide cursor position API, so we'll use a fallback
+        None
     }
 }
 
@@ -74,14 +45,9 @@ impl InputHandlerTrait for InputHandlerImpl {
         let (new_x, new_y) = if let Some((px, py)) = *pos_opt {
             (px + x, py + y)
         } else {
-            // First movement - get actual cursor position to avoid jump
-            if let Some((cx, cy)) = Self::get_cursor_position() {
-                (cx + x, cy + y)
-            } else {
-                // Fallback: use center of screen if we can't get position
-                (ServerConfig::FALLBACK_SCREEN_WIDTH / 2.0 + x, 
-                 ServerConfig::FALLBACK_SCREEN_HEIGHT / 2.0 + y)
-            }
+            // First movement - use fallback center if we can't get position
+            (ServerConfig::FALLBACK_SCREEN_WIDTH / 2.0 + x, 
+             ServerConfig::FALLBACK_SCREEN_HEIGHT / 2.0 + y)
         };
         
         *pos_opt = Some((new_x, new_y));
@@ -316,3 +282,4 @@ fn string_to_key(s: &str) -> Option<Key> {
         _ => None,
     }
 }
+
