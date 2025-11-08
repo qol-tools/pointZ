@@ -73,6 +73,10 @@ fn show_qr_window(data: &super::QrData) {
     let link = gtk::LinkButton::with_label(&data.download_url, &data.download_url);
     vbox.pack_start(&link, false, false, 0);
     
+    let platform_info = gtk::Label::new(Some("Releases page auto-detects your platform\nand shows the correct download."));
+    platform_info.set_line_wrap(true);
+    vbox.pack_start(&platform_info, false, false, 5);
+    
     let info_label = gtk::Label::new(Some("App will auto-discover this server on the same network."));
     vbox.pack_start(&info_label, false, false, 0);
     
