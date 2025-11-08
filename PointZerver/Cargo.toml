@@ -22,7 +22,7 @@ windows = { version = "0.52", features = [
     "Win32_System_Threading",
 ] }
 
-[target.'cfg(unix)'.dependencies]
+[target.'cfg(target_os = "linux")'.dependencies]
 rdev = "0.5"
 x11 = "2.21"
 gtk = "0.18"

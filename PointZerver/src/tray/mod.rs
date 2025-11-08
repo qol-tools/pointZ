@@ -5,11 +5,11 @@ use tray_icon::menu::{Menu, MenuItem, MenuEvent};
 use tray_icon::{TrayIconBuilder, TrayIconEvent};
 use tokio::sync::mpsc;
 
-#[cfg(unix)]
+#[cfg(target_os = "linux")]
 use gtk::{self, glib};
 
 pub struct TrayManager {
-    #[cfg(not(unix))]
+    #[cfg(not(target_os = "linux"))]
     _tray_icon: tray_icon::TrayIcon,
     _show_qr_tx: mpsc::UnboundedSender<QrData>,
 }
@@ -24,7 +24,7 @@ impl TrayManager {
     pub fn new() -> Result<Self> {
         let (show_qr_tx, show_qr_rx) = mpsc::unbounded_channel();
         
-        #[cfg(unix)]
+        #[cfg(target_os = "linux")]
         {
             let show_qr_tx_for_tray = show_qr_tx.clone();
             std::thread::spawn(move || {
@@ -117,7 +117,7 @@ impl TrayManager {
             std::thread::sleep(std::time::Duration::from_millis(100));
         }
         
-        #[cfg(not(unix))]
+        #[cfg(not(target_os = "linux"))]
         {
             let show_qr_item = MenuItem::with_id(
                 "show_qr",

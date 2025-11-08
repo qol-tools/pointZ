@@ -1,14 +1,14 @@
-#[cfg(unix)]
+#[cfg(target_os = "linux")]
 use gtk::{prelude::*, glib};
 use tokio::sync::mpsc;
 use qrcode::QrCode;
 use image::Rgb;
 
-#[cfg(unix)]
+#[cfg(target_os = "linux")]
 static mut QR_WINDOW: Option<gtk::Window> = None;
 
 pub async fn run_qr_window(mut rx: mpsc::UnboundedReceiver<super::QrData>) {
-    #[cfg(unix)]
+    #[cfg(target_os = "linux")]
     {
         while let Some(data) = rx.recv().await {
             let data_clone = data.clone();
@@ -18,13 +18,17 @@ pub async fn run_qr_window(mut rx: mpsc::UnboundedReceiver<super::QrData>) {
         }
     }
     
-    #[cfg(not(unix))]
+    #[cfg(not(target_os = "linux"))]
     {
-        let _ = rx;
+        // On macOS/Windows, QR code display not yet implemented
+        // For now, just consume the channel
+        while let Some(_data) = rx.recv().await {
+            // TODO: Implement native QR window for macOS/Windows
+        }
     }
 }
 
-#[cfg(unix)]
+#[cfg(target_os = "linux")]
 fn show_qr_window(data: &super::QrData) {
     unsafe {
         if let Some(ref window) = QR_WINDOW {
@@ -94,7 +98,7 @@ fn show_qr_window(data: &super::QrData) {
     }
 }
 
-#[cfg(unix)]
+#[cfg(target_os = "linux")]
 fn generate_qr_pixbuf(data: &str) -> Option<gtk::gdk_pixbuf::Pixbuf> {
     let qr = QrCode::new(data).ok()?;
     let qr_image = qr.render::<Rgb<u8>>()
