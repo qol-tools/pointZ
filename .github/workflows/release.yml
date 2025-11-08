@@ -11,6 +11,38 @@ on:
         required: true
 
 jobs:
+  build-apk:
+    name: Build - Android APK
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.24.0'
+          channel: 'stable'
+
+      - name: Install dependencies
+        working-directory: PointZ
+        run: flutter pub get
+
+      - name: Build APK
+        working-directory: PointZ
+        run: flutter build apk --release
+
+      - name: Rename APK
+        run: |
+          cp PointZ/build/app/outputs/flutter-apk/app-release.apk pointz-app.apk
+
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: pointz-app.apk
+          path: pointz-app.apk
+          retention-days: 90
+
   build:
     name: Build - ${{ matrix.name_suffix }}
     runs-on: ${{ matrix.os }}
@@ -127,7 +159,7 @@ jobs:
 
   release:
     name: Create Release
-    needs: build
+    needs: [build, build-apk]
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -172,7 +204,13 @@ jobs:
           tag_name: ${{ steps.version.outputs.version }}
           name: PointZ Server ${{ steps.version.outputs.version }}
           body: |
-            ## PointZ Server ${{ steps.version.outputs.version }}
+            ## PointZ ${{ steps.version.outputs.version }}
+
+            ### Mobile App (Android)
+
+            - **Android APK**: `pointz-app.apk`
+
+            ### Server Downloads
 
             Download the server binary for your operating system:
 
@@ -185,6 +223,10 @@ jobs:
 
             ### Installation
 
+            **Android:**
+            1. Download `pointz-app.apk`
+            2. Install the APK (enable "Install from unknown sources" if needed)
+
             **Linux (Debian/Ubuntu/Mint):**
             ```bash
             sudo dpkg -i pointzerver-linux-x86_64.deb
@@ -196,7 +238,7 @@ jobs:
             1. Download the binary for your OS
             2. Run it (it will appear in your system tray)
             3. Right-click the tray icon → "Show QR Code"
-            4. Scan QR code with PointZ mobile app
+            4. Scan QR code to download the mobile app
             5. App will auto-discover and connect
 
             ### Notes

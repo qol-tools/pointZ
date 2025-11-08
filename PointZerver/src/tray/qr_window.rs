@@ -62,7 +62,7 @@ fn show_qr_window(data: &super::QrData) {
     let separator1 = gtk::Separator::new(gtk::Orientation::Horizontal);
     vbox.pack_start(&separator1, false, false, 5);
     
-    let scan_label = gtk::Label::new(Some("Scan QR code to download app:"));
+    let scan_label = gtk::Label::new(Some("Scan QR code to download mobile app:"));
     vbox.pack_start(&scan_label, false, false, 0);
     
     if let Some(pixbuf) = generate_qr_pixbuf(&data.download_url) {
@@ -79,7 +79,7 @@ fn show_qr_window(data: &super::QrData) {
     let link = gtk::LinkButton::with_label(&data.download_url, &data.download_url);
     vbox.pack_start(&link, false, false, 0);
     
-    let platform_info = gtk::Label::new(Some("Releases page auto-detects your platform\nand shows the correct download."));
+    let platform_info = gtk::Label::new(Some("Direct download link for Android APK.\nInstall on your phone to control this PC."));
     platform_info.set_line_wrap(true);
     vbox.pack_start(&platform_info, false, false, 5);
     

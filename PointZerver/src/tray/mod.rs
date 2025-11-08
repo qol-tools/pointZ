@@ -78,7 +78,7 @@ impl TrayManager {
                             }
                             "show_qr" => {
                                 let _ = show_qr_tx_menu.send(QrData {
-                                    download_url: "https://github.com/KMRH47/pointZ-new/releases/latest".to_string(),
+                                    download_url: "https://github.com/KMRH47/pointZ-new/releases/latest/download/pointz-app.apk".to_string(),
                                     ip: get_local_ip_string(),
                                 });
                             }
@@ -94,7 +94,7 @@ impl TrayManager {
                     while let Ok(event) = tray_event_receiver.try_recv() {
                         if matches!(event.click_type, tray_icon::ClickType::Left | tray_icon::ClickType::Right) {
                             let _ = show_qr_tx_for_handler.send(QrData {
-                                download_url: "https://github.com/KMRH47/pointZ-new/releases/latest".to_string(),
+                                download_url: "https://github.com/KMRH47/pointZ-new/releases/latest/download/pointz-app.apk".to_string(),
                                 ip: get_local_ip_string(),
                             });
                         }
@@ -164,7 +164,7 @@ impl TrayManager {
                         }
                         "show_qr" => {
                             let _ = show_qr_tx_for_menu.send(QrData {
-                                download_url: "https://github.com/KMRH47/pointZ-new/releases/latest".to_string(),
+                                download_url: "https://github.com/KMRH47/pointZ-new/releases/latest/download/pointz-app.apk".to_string(),
                                 ip: get_local_ip_string(),
                             });
                         }
@@ -179,7 +179,7 @@ impl TrayManager {
                 while let Ok(event) = tray_event_receiver.recv() {
                     if matches!(event.click_type, tray_icon::ClickType::Left | tray_icon::ClickType::Right) {
                         let _ = show_qr_tx_for_handler.send(QrData {
-                            download_url: "https://github.com/KMRH47/pointZ-new/releases/latest".to_string(),
+                            download_url: "https://github.com/KMRH47/pointZ-new/releases/latest/download/pointz-app.apk".to_string(),
                             ip: get_local_ip_string(),
                         });
                     }
