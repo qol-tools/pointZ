@@ -198,10 +198,6 @@ impl TrayManager {
                 _show_qr_tx: show_qr_tx,
             });
         }
-        
-        Ok(Self {
-            _show_qr_tx: show_qr_tx,
-        })
     }
     
 }
