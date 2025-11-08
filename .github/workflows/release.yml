@@ -1,0 +1,139 @@
+name: Build and Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version tag (e.g., v0.1.0)'
+        required: true
+
+jobs:
+  build:
+    name: Build for ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        include:
+          - os: ubuntu-latest
+            target: x86_64-unknown-linux-gnu
+            artifact_name: pointzerver-linux-x86_64
+          - os: windows-latest
+            target: x86_64-pc-windows-msvc
+            artifact_name: pointzerver-windows-x86_64.exe
+          - os: macos-latest
+            target: x86_64-apple-darwin
+            artifact_name: pointzerver-macos-x86_64
+          - os: macos-latest
+            target: aarch64-apple-darwin
+            artifact_name: pointzerver-macos-aarch64
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+
+      - name: Cache cargo registry
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            PointZerver/target/
+          key: ${{ runner.os }}-cargo-${{ matrix.target }}-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-${{ matrix.target }}-
+
+      - name: Build release binary
+        working-directory: PointZerver
+        run: |
+          cargo build --release --target ${{ matrix.target }}
+
+      - name: Prepare artifact
+        shell: bash
+        run: |
+          if [[ "${{ runner.os }}" == "Windows" ]]; then
+            cp PointZerver/target/${{ matrix.target }}/release/pointzerver.exe ${{ matrix.artifact_name }}
+          else
+            cp PointZerver/target/${{ matrix.target }}/release/pointzerver ${{ matrix.artifact_name }}
+          fi
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact_name }}
+          path: ${{ matrix.artifact_name }}
+          retention-days: 90
+
+  release:
+    name: Create Release
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Determine version
+        id: version
+        shell: bash
+        run: |
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            VERSION="${{ github.event.inputs.version }}"
+          else
+            VERSION="${GITHUB_REF#refs/tags/}"
+          fi
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "Version: $VERSION"
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: ${{ steps.version.outputs.version }}
+          name: PointZ Server ${{ steps.version.outputs.version }}
+          body: |
+            ## PointZ Server ${{ steps.version.outputs.version }}
+
+            Download the server binary for your operating system:
+
+            - **Linux (x86_64)**: `pointzerver-linux-x86_64`
+            - **Windows (x86_64)**: `pointzerver-windows-x86_64.exe`
+            - **macOS (Intel)**: `pointzerver-macos-x86_64`
+            - **macOS (Apple Silicon)**: `pointzerver-macos-aarch64`
+
+            ### Usage
+
+            1. Download the binary for your OS
+            2. Run it (it will appear in your system tray)
+            3. Right-click the tray icon → "Show QR Code"
+            4. Scan QR code with PointZ mobile app
+            5. App will auto-discover and connect
+
+            ### Notes
+
+            - Server runs in background (system tray)
+            - No console window needed
+            - Right-click tray icon for options
+          files: |
+            artifacts/pointzerver-linux-x86_64
+            artifacts/pointzerver-windows-x86_64.exe
+            artifacts/pointzerver-macos-x86_64
+            artifacts/pointzerver-macos-aarch64
+          draft: false
+          prerelease: false
+
