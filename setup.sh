@@ -46,13 +46,29 @@ if ! check_command git; then
     MISSING_DEPS=1
 fi
 
+if ! check_command pkg-config; then
+    MISSING_DEPS=1
+fi
+
+# Check for Linux GUI dependencies (needed for system tray)
+if [[ "$OSTYPE" == "linux-gnu"* ]]; then
+    if ! pkg-config --exists atk pango gtk+-3.0 2>/dev/null; then
+        MISSING_DEPS=1
+        echo -e "${RED}✗${NC} Linux GUI libraries (atk, pango, gtk+-3.0) not found"
+    fi
+fi
+
 if [ $MISSING_DEPS -eq 1 ]; then
     echo ""
     echo -e "${YELLOW}Some system dependencies are missing.${NC}"
     echo "Install them with your package manager:"
-    echo "  Ubuntu/Debian: sudo apt install curl git"
-    echo "  Fedora: sudo dnf install curl git"
-    echo "  macOS: brew install curl git"
+    if [[ "$OSTYPE" == "linux-gnu"* ]]; then
+        echo "  Ubuntu/Debian: sudo apt install curl git pkg-config libgtk-3-dev libgdk-pixbuf2.0-dev libatk1.0-dev libpango1.0-dev libcairo2-dev libglib2.0-dev libwebkit2gtk-4.1-dev libayatana-appindicator3-dev libx11-dev libxcb1-dev libxkbcommon-dev libxkbcommon-x11-dev libxdo-dev"
+        echo "  Fedora: sudo dnf install curl git pkg-config gtk3-devel gdk-pixbuf2-devel atk-devel pango-devel cairo-devel glib2-devel webkit2gtk3-devel libappindicator-gtk3-devel libX11-devel libxcb-devel libxkbcommon-devel"
+        echo "  Arch: sudo pacman -S curl git pkg-config gtk3 gdk-pixbuf2 atk pango cairo glib2 webkit2gtk libappindicator-gtk3 libx11 libxcb libxkbcommon"
+    else
+        echo "  macOS: brew install curl git"
+    fi
     exit 1
 fi
 

@@ -1,6 +1,5 @@
 use std::net::IpAddr;
 use if_addrs::get_if_addrs;
-use qrcode::QrCode;
 
 pub fn get_local_ip() -> Option<IpAddr> {
     get_if_addrs()
@@ -8,35 +7,5 @@ pub fn get_local_ip() -> Option<IpAddr> {
         .iter()
         .find(|iface| !iface.is_loopback() && iface.ip().is_ipv4())
         .map(|iface| iface.ip())
-}
-
-fn print_qr_ascii(data: &str) {
-    if let Ok(qr) = QrCode::new(data) {
-        let string = qr.render::<char>()
-            .quiet_zone(false)
-            .module_dimensions(2, 1)
-            .build();
-        println!("{}", string);
-    }
-}
-
-pub fn print_qr_code(download_url: &str, ip: &str) {
-    println!("\n╔═══════════════════════════════════════════════════════════╗");
-    println!("║                    PointZ Server                         ║");
-    println!("╠═══════════════════════════════════════════════════════════╣");
-    println!("║  Server IP: {}                              ║", format!("{:.<40}", ip));
-    println!("║  Ports: Discovery=45454, Command=45455                   ║");
-    println!("╠═══════════════════════════════════════════════════════════╣");
-    println!("║  Scan QR code to download app:                           ║");
-    println!("╠═══════════════════════════════════════════════════════════╣");
-    
-    print_qr_ascii(download_url);
-    
-    println!("╠═══════════════════════════════════════════════════════════╣");
-    println!("║  Or download manually:                                   ║");
-    println!("║  {}", download_url);
-    println!("║                                                           ║");
-    println!("║  App will auto-discover this server on the same network. ║");
-    println!("╚═══════════════════════════════════════════════════════════╝\n");
 }
 

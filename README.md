@@ -21,6 +21,18 @@ Mobile app for controlling your PC cursor from Android/iOS.
 make setup
 ```
 
+**Linux GUI dependencies (required for system tray):**
+```bash
+# Ubuntu/Debian
+sudo apt install libgtk-3-dev libgdk-pixbuf2.0-dev libatk1.0-dev libpango1.0-dev libcairo2-dev libglib2.0-dev libwebkit2gtk-4.1-dev libayatana-appindicator3-dev libx11-dev libxcb1-dev libxkbcommon-dev libxkbcommon-x11-dev libxdo-dev pkg-config
+
+# Fedora
+sudo dnf install gtk3-devel gdk-pixbuf2-devel atk-devel pango-devel cairo-devel glib2-devel webkit2gtk3-devel libappindicator-gtk3-devel libX11-devel libxcb-devel libxkbcommon-devel pkg-config
+
+# Arch
+sudo pacman -S gtk3 gdk-pixbuf2 atk pango cairo glib2 webkit2gtk libappindicator-gtk3 libx11 libxcb libxkbcommon pkg-config
+```
+
 **Check setup:**
 ```bash
 make check  # Verify all dependencies are installed
