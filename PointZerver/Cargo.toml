@@ -2,6 +2,8 @@
 name = "pointzerver"
 version = "0.1.0"
 edition = "2021"
+description = "PointZ Server - Control your PC cursor from your mobile device"
+license = "MIT"
 
 [dependencies]
 tokio = { version = "1.35", features = ["full"] }
@@ -29,4 +31,18 @@ gtk = "0.18"
 
 [target.'cfg(target_os = "macos")'.dependencies]
 rdev = "0.5"
+
+[package.metadata.deb]
+maintainer = "KMRH47"
+copyright = "2025, KMRH47"
+extended-description = """\
+PointZ Server - Control your PC cursor from your mobile device.
+Runs in the system tray with auto-discovery support."""
+depends = "$auto, libgtk-3-0, libayatana-appindicator3-1, libx11-6, libxdo3"
+section = "utils"
+priority = "optional"
+assets = [
+    ["target/release/pointzerver", "usr/bin/", "755"],
+    ["../assets/pointz.desktop", "usr/share/applications/", "644"],
+]
 

@@ -81,6 +81,16 @@ jobs:
         run: |
           cargo build --release --target ${{ matrix.target }}
 
+      - name: Install cargo-deb (Linux only)
+        if: matrix.os == 'ubuntu-latest'
+        run: cargo install cargo-deb
+
+      - name: Build .deb package (Linux only)
+        if: matrix.os == 'ubuntu-latest'
+        working-directory: PointZerver
+        run: |
+          cargo deb --target ${{ matrix.target }} --no-build
+
       - name: Prepare artifact
         shell: bash
         run: |
@@ -90,11 +100,29 @@ jobs:
             cp PointZerver/target/${{ matrix.target }}/release/pointzerver ${{ matrix.artifact_name }}
           fi
 
+      - name: Find and prepare .deb package (Linux only)
+        if: matrix.os == 'ubuntu-latest'
+        shell: bash
+        run: |
+          DEB_FILE=$(find PointZerver/target/${{ matrix.target }}/debian -name "*.deb" | head -n 1)
+          if [ -f "$DEB_FILE" ]; then
+            cp "$DEB_FILE" pointzerver-linux-x86_64.deb
+            echo "DEB_CREATED=true" >> $GITHUB_ENV
+          fi
+
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.artifact_name }}
           path: ${{ matrix.artifact_name }}
+          retention-days: 90
+
+      - name: Upload .deb artifact (Linux only)
+        if: matrix.os == 'ubuntu-latest' && env.DEB_CREATED == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: pointzerver-linux-x86_64.deb
+          path: pointzerver-linux-x86_64.deb
           retention-days: 90
 
   release:
@@ -148,13 +176,23 @@ jobs:
 
             Download the server binary for your operating system:
 
-            - **Linux (x86_64)**: `pointzerver-linux-x86_64`
+            - **Linux (x86_64)**:
+              - `.deb` package (recommended): `pointzerver-linux-x86_64.deb`
+              - Raw binary: `pointzerver-linux-x86_64`
             - **Windows (x86_64)**: `pointzerver-windows-x86_64.exe`
             - **macOS (Intel)**: `pointzerver-macos-x86_64`
             - **macOS (Apple Silicon)**: `pointzerver-macos-aarch64`
 
-            ### Usage
+            ### Installation
 
+            **Linux (Debian/Ubuntu/Mint):**
+            ```bash
+            sudo dpkg -i pointzerver-linux-x86_64.deb
+            # Or double-click the .deb file
+            # Then run: pointzerver
+            ```
+
+            **Other platforms:**
             1. Download the binary for your OS
             2. Run it (it will appear in your system tray)
             3. Right-click the tray icon → "Show QR Code"
