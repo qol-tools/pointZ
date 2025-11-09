@@ -11,7 +11,7 @@ use gtk::{self, glib};
 pub struct TrayManager {
     #[cfg(not(target_os = "linux"))]
     _tray_icon: tray_icon::TrayIcon,
-    _show_qr_tx: mpsc::UnboundedSender<QrData>,
+    show_qr_tx: mpsc::UnboundedSender<QrData>,
 }
 
 #[derive(Clone)]
@@ -102,10 +102,10 @@ impl TrayManager {
             std::thread::sleep(std::time::Duration::from_millis(100));
 
             Ok(Self {
-                _show_qr_tx: show_qr_tx,
+                show_qr_tx,
             })
         }
-        
+
         #[cfg(not(target_os = "linux"))]
         {
             let quit_item = MenuItem::with_id(
@@ -114,20 +114,18 @@ impl TrayManager {
                 true,
                 None,
             );
-            
+
             let menu = Menu::with_items(&[&quit_item])?;
-            
+
             let icon = create_tray_icon();
-            
+
             let tray_icon = TrayIconBuilder::new()
                 .with_menu(Box::new(menu))
                 .with_tooltip("PointZ Server")
                 .with_icon(icon)
                 .with_menu_on_left_click(false)
                 .build()?;
-            
-            let show_qr_tx_for_handler = show_qr_tx.clone();
-            
+
             // Handle menu item clicks via MenuEvent
             let menu_receiver = MenuEvent::receiver();
             std::thread::spawn(move || {
@@ -140,44 +138,32 @@ impl TrayManager {
                     }
                 }
             });
-            
-            // Handle tray icon clicks via TrayIconEvent
-            // Left click: Open QR UI directly
-            // Right click: Show context menu (handled automatically by tray-icon)
-            let tray_event_receiver = TrayIconEvent::receiver();
-            std::thread::spawn(move || {
-                while let Ok(event) = tray_event_receiver.recv() {
-                    if matches!(event.click_type, tray_icon::ClickType::Left) {
-                        let _ = show_qr_tx_for_handler.send(QrData {
-                            download_url: "https://github.com/KMRH47/pointZ-new/releases/latest/download/pointz-app.apk".to_string(),
-                            ip: get_local_ip_string(),
-                        });
-                    }
-                }
-            });
-            
+
             std::thread::spawn(move || {
                 let rt = tokio::runtime::Runtime::new().unwrap();
                 rt.block_on(async {
                     qr_window::run_qr_window(show_qr_rx).await;
                 });
             });
-            
+
             return Ok(Self {
                 _tray_icon: tray_icon,
-                _show_qr_tx: show_qr_tx,
+                show_qr_tx,
             });
         }
     }
-    
+
+    pub fn get_show_qr_sender(&self) -> mpsc::UnboundedSender<QrData> {
+        self.show_qr_tx.clone()
+    }
 }
 
+#[cfg(target_os = "linux")]
 fn get_local_ip_string() -> String {
     crate::utils::get_local_ip()
         .map(|ip| ip.to_string())
         .unwrap_or_else(|| "localhost".to_string())
 }
-
 
 fn create_tray_icon() -> tray_icon::Icon {
     const ICON_SIZE: u32 = 32;
