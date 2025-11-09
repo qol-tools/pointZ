@@ -115,10 +115,10 @@ impl TrayManager {
             });
             
             std::thread::sleep(std::time::Duration::from_millis(100));
-            
-            return Ok(Self {
+
+            Ok(Self {
                 _show_qr_tx: show_qr_tx,
-            });
+            })
         }
         
         #[cfg(not(target_os = "linux"))]

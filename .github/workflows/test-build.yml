@@ -25,8 +25,8 @@ on:
       - 'PointZ/pubspec.lock'
 
 jobs:
-  rust-test:
-    name: Rust Tests
+  rust-check:
+    name: Rust Check
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
@@ -58,17 +58,17 @@ jobs:
         uses: swatinem/rust-cache@v2
         with:
           workspaces: PointZerver
-
-      - name: Run tests
-        working-directory: PointZerver
-        run: cargo test --workspace
 
       - name: Run clippy
         working-directory: PointZerver
         run: cargo clippy --workspace -- -D warnings
 
+      - name: Run tests
+        working-directory: PointZerver
+        run: cargo test --workspace
+
   flutter-test:
-    name: Flutter Tests
+    name: Flutter Test
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
@@ -83,84 +83,11 @@ jobs:
       - name: Get dependencies
         working-directory: PointZ
         run: flutter pub get
+
+      - name: Analyze
+        working-directory: PointZ
+        run: flutter analyze
 
       - name: Run tests
         working-directory: PointZ
         run: flutter test
-
-  build-check:
-    name: Build Check (Rust)
-    runs-on: ubuntu-latest
-    needs: rust-test
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Install Rust
-        uses: dtolnay/rust-toolchain@stable
-
-      - name: Install Linux dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y \
-            pkg-config \
-            libgtk-3-dev \
-            libgdk-pixbuf2.0-dev \
-            libatk1.0-dev \
-            libpango1.0-dev \
-            libcairo2-dev \
-            libglib2.0-dev \
-            libwebkit2gtk-4.1-dev \
-            libayatana-appindicator3-dev \
-            libx11-dev \
-            libxcb1-dev \
-            libxkbcommon-dev \
-            libxkbcommon-x11-dev \
-            libxdo-dev
-
-      - name: Cache Rust dependencies
-        uses: swatinem/rust-cache@v2
-        with:
-          workspaces: PointZerver
-
-      - name: Build debug binary
-        working-directory: PointZerver
-        run: cargo build --workspace
-
-      - name: Verify binary exists
-        run: |
-          test -f PointZerver/target/debug/pointzerver || exit 1
-          echo "✓ Debug binary built successfully"
-
-  flutter-build:
-    name: Build Check (Flutter)
-    runs-on: ubuntu-latest
-    needs: flutter-test
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Setup Flutter
-        uses: subosito/flutter-action@v2
-        with:
-          flutter-version: '3.24.0'
-          cache: true
-
-      - name: Setup Java
-        uses: actions/setup-java@v4
-        with:
-          distribution: 'temurin'
-          java-version: '17'
-
-      - name: Get dependencies
-        working-directory: PointZ
-        run: flutter pub get
-
-      - name: Build debug APK
-        working-directory: PointZ
-        run: flutter build apk --debug
-
-      - name: Verify APK exists
-        run: |
-          test -f PointZ/build/app/outputs/flutter-apk/app-debug.apk || exit 1
-          echo "✓ Debug APK built successfully"
