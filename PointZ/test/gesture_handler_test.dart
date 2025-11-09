@@ -4,11 +4,11 @@ import 'package:pointz/domain/models/gesture_event.dart';
 import 'package:pointz/features/gesture/gesture_handler.dart';
 import 'package:pointz/features/gesture/config/gesture_config.dart';
 import 'package:pointz/features/mouse_control/interfaces/mouse_command_executor.dart';
-import 'dart:async';
+import 'package:pointz/services/settings_service.dart';
 
 class MockMouseExecutor implements MouseCommandExecutor {
   final List<String> _calls = [];
-  
+
   List<String> get calls => List.unmodifiable(_calls);
   void clear() => _calls.clear();
 
@@ -42,147 +42,164 @@ void main() {
   group('GestureHandler Integration Tests', () {
     late MockMouseExecutor executor;
     late GestureHandler handler;
+    late GestureConfig config;
 
     setUp(() {
       executor = MockMouseExecutor();
-      handler = GestureHandler(executor);
+      final settings = AppSettings();
+      config = GestureConfig(settings);
+      handler = GestureHandler(executor, config);
     });
 
     test('single tap performs single click after delay', () async {
+      // Arrange
       final downEvent = GestureEvent(
         action: TouchAction.down,
         x: 10,
         y: 20,
       );
-      
+
+      // Act
       await handler.handleEvent(downEvent);
-      
-      // Wait for double-click window to expire
-      await Future.delayed(Duration(milliseconds: GestureConfig.doubleTapDelayMs + 50));
-      
+      await Future.delayed(
+          Duration(milliseconds: config.doubleTapDelayMs + 50));
+
+      // Assert
       expect(executor.calls, ['mouseClick(1)']);
     });
 
     test('double tap and hold starts holding', () async {
-      // First tap
+      // Arrange
       final firstDown = GestureEvent(
         action: TouchAction.down,
         x: 10,
         y: 20,
       );
-      await handler.handleEvent(firstDown);
-      
-      // Wait a bit but within window
-      await Future.delayed(Duration(milliseconds: 50));
-      
-      // Second tap within window
       final secondDown = GestureEvent(
         action: TouchAction.down,
         x: 10,
         y: 20,
       );
+
+      // Act
+      await handler.handleEvent(firstDown);
+      await Future.delayed(const Duration(milliseconds: 50));
       await handler.handleEvent(secondDown);
-      
+
+      // Assert
       expect(executor.calls, ['mouseDown(1)']);
     });
 
     test('double tap and hold then drag moves mouse', () async {
-      // First tap
+      // Arrange
       final firstDown = GestureEvent(
         action: TouchAction.down,
         x: 10,
         y: 20,
       );
-      await handler.handleEvent(firstDown);
-      
-      // Second tap within window
       final secondDown = GestureEvent(
         action: TouchAction.down,
         x: 10,
         y: 20,
       );
-      await handler.handleEvent(secondDown);
-      
-      // Move while holding
-      final moveEvent = GestureEvent(
+      final firstMove = GestureEvent(
+        action: TouchAction.move,
+        x: 15,
+        y: 25,
+      );
+      final secondMove = GestureEvent(
         action: TouchAction.move,
         x: 60,
         y: 70,
       );
-      await handler.handleEvent(moveEvent);
-      
-      // Release
       final upEvent = GestureEvent(
         action: TouchAction.up,
         x: 0,
         y: 0,
       );
+
+      // Act
+      await handler.handleEvent(firstDown);
+      await handler.handleEvent(secondDown);
+      await handler.handleEvent(firstMove);
+      await handler.handleEvent(secondMove);
       await handler.handleEvent(upEvent);
-      
+
+      // Assert
       expect(executor.calls[0], 'mouseDown(1)');
       expect(executor.calls[1], contains('mouseMove'));
-      expect(executor.calls[2], 'mouseUp(1)');
+      expect(executor.calls[executor.calls.length - 1], 'mouseUp(1)');
     });
 
     test('movement cancels double-click window', () async {
-      // First tap
+      // Arrange
       final firstDown = GestureEvent(
         action: TouchAction.down,
         x: 10,
         y: 20,
       );
-      await handler.handleEvent(firstDown);
-      
-      // Move beyond deadzone
       final moveEvent = GestureEvent(
         action: TouchAction.move,
-        x: 10 + GestureConfig.deadZoneInitial + 1,
-        y: 20 + GestureConfig.deadZoneInitial + 1,
+        x: 10 + config.deadZoneInitial + 1,
+        y: 20 + config.deadZoneInitial + 1,
       );
+
+      // Act
+      await handler.handleEvent(firstDown);
       await handler.handleEvent(moveEvent);
-      
-      // Wait for double-click window
-      await Future.delayed(Duration(milliseconds: GestureConfig.doubleTapDelayMs + 50));
-      
-      // Should not have clicked because movement cancelled it
+      await Future.delayed(
+          Duration(milliseconds: config.doubleTapDelayMs + 50));
+
+      // Assert
       expect(executor.calls.isEmpty, true);
     });
 
     test('two finger tap performs right click', () async {
+      // Arrange
       final downEvent = GestureEvent(
         action: TouchAction.pointer2Down,
         x: 10,
         y: 20,
       );
-      await handler.handleEvent(downEvent);
-      
       final upEvent = GestureEvent(
         action: TouchAction.up,
         x: 0,
         y: 0,
       );
+
+      // Act
+      await handler.handleEvent(downEvent);
       await handler.handleEvent(upEvent);
-      
-      expect(executor.calls, ['mouseClick(2)']);
+      await Future.delayed(
+          Duration(milliseconds: config.rightClickButtonHoldMs + 10));
+
+      // Assert
+      expect(executor.calls[0], 'mouseDown(2)');
+      expect(executor.calls[1], 'mouseUp(2)');
     });
 
     test('three finger tap performs middle click', () async {
+      // Arrange
       final downEvent = GestureEvent(
         action: TouchAction.pointer3Down,
         x: 10,
         y: 20,
       );
-      await handler.handleEvent(downEvent);
-      
       final upEvent = GestureEvent(
         action: TouchAction.up,
         x: 0,
         y: 0,
       );
+
+      // Act
+      await handler.handleEvent(downEvent);
       await handler.handleEvent(upEvent);
-      
-      expect(executor.calls, ['mouseClick(3)']);
+      await Future.delayed(
+          Duration(milliseconds: config.rightClickButtonHoldMs + 10));
+
+      // Assert
+      expect(executor.calls[0], 'mouseDown(3)');
+      expect(executor.calls[1], 'mouseUp(3)');
     });
   });
 }
-

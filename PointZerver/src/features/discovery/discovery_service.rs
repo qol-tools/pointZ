@@ -5,8 +5,8 @@ use crate::domain::models::DiscoveryResponse;
 use crate::utils::get_hostname;
 
 pub struct DiscoveryService {
-    socket: UdpSocket,
-    response: DiscoveryResponse,
+    pub(crate) socket: UdpSocket,
+    pub(crate) response: DiscoveryResponse,
 }
 
 impl DiscoveryService {
@@ -19,7 +19,7 @@ impl DiscoveryService {
         Ok(Self { socket, response })
     }
 
-    fn is_discovery_request(&self, request: &str) -> bool {
+    pub fn is_discovery_request(&self, request: &str) -> bool {
         request.trim() == ServerConfig::DISCOVER_MESSAGE
     }
 
@@ -32,17 +32,17 @@ impl DiscoveryService {
 
     pub async fn run(&self) -> Result<()> {
         let mut buf = [0; ServerConfig::DISCOVERY_BUFFER_SIZE];
-        
+
         loop {
             let Ok((size, addr)) = self.socket.recv_from(&mut buf).await else {
                 continue;
             };
-            
+
             let request = String::from_utf8_lossy(&buf[..size]);
             if !self.is_discovery_request(&request) {
                 continue;
             }
-            
+
             self.send_response(addr).await;
         }
     }

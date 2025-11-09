@@ -1,4 +1,4 @@
-.PHONY: help setup check server-build server-run server-check server-clean server-release client-get client-run client-build client-build-apk client-build-apk-debug client-install client-build-install client-build-install-debug client-devices client-logs client-clean run build clean server
+.PHONY: help setup check server-build server-run server-check server-clean server-release server-test client-get client-run client-build client-build-apk client-build-apk-debug client-install client-build-install client-build-install-debug client-devices client-logs client-clean client-test test run build clean server
 
 help:
 	@echo "PointZ - Client/Server Commands"
@@ -20,6 +20,7 @@ help:
 	@echo "  make server-build    - Build release binary"
 	@echo "  make server-run      - Run server in debug mode"
 	@echo "  make server-check    - Check code without building"
+	@echo "  make server-test     - Run Rust unit tests"
 	@echo "  make server-clean    - Clean build artifacts"
 	@echo ""
 	@echo "Client (PointZ):"
@@ -32,7 +33,11 @@ help:
 	@echo "  make client-build-install-debug - Build debug APK and install (faster)"
 	@echo "  make client-devices   - List connected devices"
 	@echo "  make client-logs      - Stream logs from connected device"
+	@echo "  make client-test      - Run Flutter unit tests"
 	@echo "  make client-clean     - Clean Flutter build"
+	@echo ""
+	@echo "Testing:"
+	@echo "  make test             - Run all tests (Flutter + Rust)"
 
 # Setup
 setup:
@@ -63,6 +68,9 @@ server-run:
 server-check:
 	cd PointZerver && cargo check
 
+server-test:
+	cd PointZerver && cargo test
+
 server-clean:
 	cd PointZerver && cargo clean
 
@@ -88,8 +96,19 @@ client-build-install-debug: client-build-apk-debug
 client-logs:
 	cd PointZ && flutter logs
 
+client-test:
+	cd PointZ && flutter test
+
 client-clean:
 	cd PointZ && flutter clean
+
+# Testing
+test:
+	@echo "Running Flutter tests..."
+	@cd PointZ && flutter test
+	@echo ""
+	@echo "Running Rust tests..."
+	@cd PointZerver && cargo test
 
 # Shortcuts
 run: client-run

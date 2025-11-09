@@ -48,7 +48,7 @@ class ServerDiscovery {
   }
 
   void _parseAndEmitServer(Datagram datagram) {
-    final hostname = _extractHostname(datagram);
+    final hostname = extractHostname(datagram);
     if (hostname == null) return;
 
     _serverController.add(DiscoveredServer(
@@ -57,14 +57,14 @@ class ServerDiscovery {
     ));
   }
 
-  String? _extractHostname(Datagram datagram) {
+  String? extractHostname(Datagram datagram) {
     final message = utf8.decode(datagram.data);
 
-    return _parseJsonHostname(message) ??
-        _parseLegacyHostname(message, datagram.address);
+    return parseJsonHostname(message) ??
+        parseLegacyHostname(message, datagram.address);
   }
 
-  String? _parseJsonHostname(String message) {
+  String? parseJsonHostname(String message) {
     try {
       final json = jsonDecode(message) as Map<String, dynamic>;
       return json[hostnameKey] as String? ?? unknownHostname;
@@ -73,7 +73,7 @@ class ServerDiscovery {
     }
   }
 
-  String? _parseLegacyHostname(String message, InternetAddress address) {
+  String? parseLegacyHostname(String message, InternetAddress address) {
     if (message.trim() != legacyResponse) {
       return null;
     }
