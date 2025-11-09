@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'dart:io';
 import 'services/discovery_service.dart';
 import 'screens/control_screen.dart';
 
@@ -32,7 +31,7 @@ class DiscoveryScreen extends StatefulWidget {
 
 class _DiscoveryScreenState extends State<DiscoveryScreen> {
   ServerDiscovery? _discovery;
-  InternetAddress? _discoveredServer;
+  final Set<DiscoveredServer> _discoveredServers = {};
   bool _isDiscovering = false;
 
   @override
@@ -44,13 +43,14 @@ class _DiscoveryScreenState extends State<DiscoveryScreen> {
   Future<void> _startDiscovery() async {
     setState(() {
       _isDiscovering = true;
+      _discoveredServers.clear();
     });
 
     _discovery = await ServerDiscovery.start();
-    _discovery!.discoveredServers.listen((address) {
+    _discovery!.discoveredServers.listen((server) {
       if (mounted) {
         setState(() {
-          _discoveredServer = address;
+          _discoveredServers.add(server);
           _isDiscovering = false;
         });
       }
@@ -59,7 +59,7 @@ class _DiscoveryScreenState extends State<DiscoveryScreen> {
     _discovery!.discover();
     
     Future.delayed(const Duration(seconds: 2), () {
-      if (mounted && _discoveredServer == null) {
+      if (mounted) {
         setState(() {
           _isDiscovering = false;
         });
@@ -67,17 +67,15 @@ class _DiscoveryScreenState extends State<DiscoveryScreen> {
     });
   }
 
-  void _connectToServer() {
-    if (_discoveredServer != null) {
-      Navigator.push(
-        context,
-        MaterialPageRoute(
-          builder: (context) => ControlScreen(
-            serverAddress: _discoveredServer!,
-          ),
+  void _connectToServer(DiscoveredServer server) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => ControlScreen(
+          serverAddress: server.address,
         ),
-      );
-    }
+      ),
+    );
   }
 
   @override
@@ -92,38 +90,57 @@ class _DiscoveryScreenState extends State<DiscoveryScreen> {
       appBar: AppBar(
         title: const Text('PointZ'),
       ),
-      body: Center(
-        child: Padding(
-          padding: const EdgeInsets.all(16.0),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              if (_isDiscovering)
-                const CircularProgressIndicator()
-              else if (_discoveredServer != null) ...[
-                const Icon(Icons.computer, size: 64),
-                const SizedBox(height: 16),
-                Text(
-                  'Server found: ${_discoveredServer!.address}',
-                  style: Theme.of(context).textTheme.titleLarge,
+      body: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          children: [
+            if (_isDiscovering)
+              const Padding(
+                padding: EdgeInsets.all(32.0),
+                child: CircularProgressIndicator(),
+              )
+            else if (_discoveredServers.isNotEmpty) ...[
+              const SizedBox(height: 16),
+              Text(
+                'Found ${_discoveredServers.length} server${_discoveredServers.length == 1 ? '' : 's'}',
+                style: Theme.of(context).textTheme.titleLarge,
+              ),
+              const SizedBox(height: 16),
+              Expanded(
+                child: ListView.builder(
+                  itemCount: _discoveredServers.length,
+                  itemBuilder: (context, index) {
+                    final server = _discoveredServers.elementAt(index);
+                    return Card(
+                      margin: const EdgeInsets.only(bottom: 8.0),
+                      child: ListTile(
+                        leading: const Icon(Icons.computer),
+                        title: Text(server.hostname),
+                        subtitle: Text(server.address.address),
+                        trailing: const Icon(Icons.arrow_forward),
+                        onTap: () => _connectToServer(server),
+                      ),
+                    );
+                  },
                 ),
-                const SizedBox(height: 24),
-                ElevatedButton(
-                  onPressed: _connectToServer,
-                  child: const Text('Connect'),
-                ),
-              ] else ...[
-                const Icon(Icons.search_off, size: 64),
-                const SizedBox(height: 16),
-                const Text('No server found'),
-                const SizedBox(height: 24),
-                ElevatedButton(
-                  onPressed: _startDiscovery,
-                  child: const Text('Search Again'),
-                ),
-              ],
+              ),
+              ElevatedButton(
+                onPressed: _startDiscovery,
+                child: const Text('Search Again'),
+              ),
+            ] else ...[
+              const Spacer(),
+              const Icon(Icons.search_off, size: 64),
+              const SizedBox(height: 16),
+              const Text('No server found'),
+              const SizedBox(height: 24),
+              ElevatedButton(
+                onPressed: _startDiscovery,
+                child: const Text('Search Again'),
+              ),
+              const Spacer(),
             ],
-          ),
+          ],
         ),
       ),
     );

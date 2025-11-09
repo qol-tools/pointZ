@@ -4,9 +4,9 @@ impl ServerConfig {
     pub const DISCOVERY_PORT: u16 = 45454;
     pub const COMMAND_PORT: u16 = 45455;
     pub const DISCOVER_MESSAGE: &'static str = "DISCOVER";
-    pub const SERVER_RESPONSE: &'static str = "POINTZ_SERVER";
     pub const DISCOVERY_BUFFER_SIZE: usize = 1024;
     pub const COMMAND_BUFFER_SIZE: usize = 4096;
+    pub const UNKNOWN_HOSTNAME: &'static str = "Unknown";
     
     // Input simulation delays
     pub const MOUSE_CLICK_DELAY_MS: u64 = 10;

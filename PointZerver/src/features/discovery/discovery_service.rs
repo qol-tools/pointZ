@@ -1,37 +1,49 @@
 use anyhow::Result;
 use tokio::net::UdpSocket;
 use crate::domain::config::ServerConfig;
+use crate::domain::models::DiscoveryResponse;
+use crate::utils::get_hostname;
 
-/// Service that handles server discovery via UDP broadcast
 pub struct DiscoveryService {
     socket: UdpSocket,
+    response: DiscoveryResponse,
 }
 
 impl DiscoveryService {
-    /// Creates a new DiscoveryService bound to the discovery port
     pub async fn new() -> Result<Self> {
         let socket = UdpSocket::bind(format!("0.0.0.0:{}", ServerConfig::DISCOVERY_PORT)).await?;
         socket.set_broadcast(true)?;
-        Ok(Self { socket })
+        let response = DiscoveryResponse {
+            hostname: get_hostname(),
+        };
+        Ok(Self { socket, response })
     }
 
-    /// Runs the discovery loop, responding to discovery requests indefinitely
+    fn is_discovery_request(&self, request: &str) -> bool {
+        request.trim() == ServerConfig::DISCOVER_MESSAGE
+    }
+
+    async fn send_response(&self, addr: std::net::SocketAddr) {
+        let Ok(json) = serde_json::to_string(&self.response) else {
+            return;
+        };
+        let _ = self.socket.send_to(json.as_bytes(), addr).await;
+    }
+
     pub async fn run(&self) -> Result<()> {
         let mut buf = [0; ServerConfig::DISCOVERY_BUFFER_SIZE];
         
         loop {
-            match self.socket.recv_from(&mut buf).await {
-                Ok((size, addr)) => {
-                    let request = String::from_utf8_lossy(&buf[..size]);
-                    if request.trim() == ServerConfig::DISCOVER_MESSAGE {
-                        let response = ServerConfig::SERVER_RESPONSE;
-                        let _ = self.socket.send_to(response.as_bytes(), addr).await;
-                    }
-                }
-                Err(e) => {
-                    eprintln!("Discovery error: {}", e);
-                }
+            let Ok((size, addr)) = self.socket.recv_from(&mut buf).await else {
+                continue;
+            };
+            
+            let request = String::from_utf8_lossy(&buf[..size]);
+            if !self.is_discovery_request(&request) {
+                continue;
             }
+            
+            self.send_response(addr).await;
         }
     }
 }
