@@ -2,7 +2,7 @@ mod qr_window;
 
 use anyhow::Result;
 use tray_icon::menu::{Menu, MenuItem, MenuEvent};
-use tray_icon::{TrayIconBuilder, TrayIconEvent};
+use tray_icon::TrayIconBuilder;
 use tokio::sync::mpsc;
 
 #[cfg(target_os = "linux")]
@@ -32,6 +32,10 @@ impl TrayManager {
                     return;
                 }
                 
+                let icon = create_tray_icon();
+                
+                // On Linux, TrayIconEvent is unsupported - we can only use MenuEvent
+                // So we provide "Show QR Code" as a menu item instead of left-click
                 let show_qr_item = MenuItem::with_id(
                     "show_qr",
                     "Show QR Code",
@@ -51,52 +55,33 @@ impl TrayManager {
                     Err(_) => return,
                 };
                 
-                let icon = create_tray_icon();
-                
                 let tray_icon = match TrayIconBuilder::new()
                     .with_menu(Box::new(menu))
                     .with_tooltip("PointZ Server")
                     .with_icon(icon)
-                    .with_menu_on_left_click(false)
                     .build()
                 {
                     Ok(ti) => ti,
                     Err(_) => return,
                 };
                 
-                let show_qr_tx_for_handler = show_qr_tx_for_tray.clone();
                 let show_qr_tx_for_menu = show_qr_tx_for_tray.clone();
                 
-                // Handle menu item clicks via MenuEvent
+                // On Linux, only MenuEvent works - TrayIconEvent is unsupported
                 let menu_receiver = MenuEvent::receiver();
-                let show_qr_tx_menu = show_qr_tx_for_menu.clone();
                 glib::timeout_add_local(std::time::Duration::from_millis(100), move || {
                     while let Ok(event) = menu_receiver.try_recv() {
                         match event.id.as_ref() {
-                            "quit" => {
-                                std::process::exit(0);
-                            }
                             "show_qr" => {
-                                let _ = show_qr_tx_menu.send(QrData {
+                                let _ = show_qr_tx_for_menu.send(QrData {
                                     download_url: "https://github.com/KMRH47/pointZ-new/releases/latest/download/pointz-app.apk".to_string(),
                                     ip: get_local_ip_string(),
                                 });
                             }
+                            "quit" => {
+                                std::process::exit(0);
+                            }
                             _ => {}
-                        }
-                    }
-                    glib::ControlFlow::Continue
-                });
-                
-                // Handle tray icon clicks via TrayIconEvent
-                let tray_event_receiver = TrayIconEvent::receiver();
-                glib::timeout_add_local(std::time::Duration::from_millis(100), move || {
-                    while let Ok(event) = tray_event_receiver.try_recv() {
-                        if matches!(event.click_type, tray_icon::ClickType::Left | tray_icon::ClickType::Right) {
-                            let _ = show_qr_tx_for_handler.send(QrData {
-                                download_url: "https://github.com/KMRH47/pointZ-new/releases/latest/download/pointz-app.apk".to_string(),
-                                ip: get_local_ip_string(),
-                            });
                         }
                     }
                     glib::ControlFlow::Continue
@@ -123,13 +108,6 @@ impl TrayManager {
         
         #[cfg(not(target_os = "linux"))]
         {
-            let show_qr_item = MenuItem::with_id(
-                "show_qr",
-                "Show QR Code",
-                true,
-                None,
-            );
-            
             let quit_item = MenuItem::with_id(
                 "quit",
                 "Quit",
@@ -137,10 +115,7 @@ impl TrayManager {
                 None,
             );
             
-            let menu = Menu::with_items(&[
-                &show_qr_item,
-                &quit_item,
-            ])?;
+            let menu = Menu::with_items(&[&quit_item])?;
             
             let icon = create_tray_icon();
             
@@ -152,7 +127,6 @@ impl TrayManager {
                 .build()?;
             
             let show_qr_tx_for_handler = show_qr_tx.clone();
-            let show_qr_tx_for_menu = show_qr_tx.clone();
             
             // Handle menu item clicks via MenuEvent
             let menu_receiver = MenuEvent::receiver();
@@ -162,22 +136,18 @@ impl TrayManager {
                         "quit" => {
                             std::process::exit(0);
                         }
-                        "show_qr" => {
-                            let _ = show_qr_tx_for_menu.send(QrData {
-                                download_url: "https://github.com/KMRH47/pointZ-new/releases/latest/download/pointz-app.apk".to_string(),
-                                ip: get_local_ip_string(),
-                            });
-                        }
                         _ => {}
                     }
                 }
             });
             
             // Handle tray icon clicks via TrayIconEvent
+            // Left click: Open QR UI directly
+            // Right click: Show context menu (handled automatically by tray-icon)
             let tray_event_receiver = TrayIconEvent::receiver();
             std::thread::spawn(move || {
                 while let Ok(event) = tray_event_receiver.recv() {
-                    if matches!(event.click_type, tray_icon::ClickType::Left | tray_icon::ClickType::Right) {
+                    if matches!(event.click_type, tray_icon::ClickType::Left) {
                         let _ = show_qr_tx_for_handler.send(QrData {
                             download_url: "https://github.com/KMRH47/pointZ-new/releases/latest/download/pointz-app.apk".to_string(),
                             ip: get_local_ip_string(),
@@ -208,34 +178,96 @@ fn get_local_ip_string() -> String {
         .unwrap_or_else(|| "localhost".to_string())
 }
 
+
 fn create_tray_icon() -> tray_icon::Icon {
     const ICON_SIZE: u32 = 32;
-    let mut icon_data = Vec::new();
     
-    for y in 0..ICON_SIZE {
-        for x in 0..ICON_SIZE {
-            let dx = x as f32 - ICON_SIZE as f32 / 2.0;
-            let dy = y as f32 - ICON_SIZE as f32 / 2.0;
-            let dist = (dx * dx + dy * dy).sqrt();
-            
-            let (r, g, b, a) = if dist < ICON_SIZE as f32 / 2.0 - 2.0 {
-                if dist < 4.0 {
-                    (100, 150, 255, 255)
-                } else {
-                    (80, 130, 235, 255)
-                }
-            } else {
-                (0, 0, 0, 0)
-            };
-            
-            icon_data.push(r);
-            icon_data.push(g);
-            icon_data.push(b);
-            icon_data.push(a);
-        }
+    load_app_icon(ICON_SIZE)
+        .or_else(|| create_fallback_icon(ICON_SIZE))
+        .expect("Failed to create tray icon")
+}
+
+fn load_app_icon(size: u32) -> Option<tray_icon::Icon> {
+    let icon_paths = get_icon_paths();
+    let candidate_paths = generate_candidate_paths();
+    
+    candidate_paths
+        .iter()
+        .flat_map(|base_path| {
+            icon_paths.iter().map(move |rel_path| base_path.join(rel_path))
+        })
+        .find_map(|path| load_and_convert_icon(&path, size))
+}
+
+fn get_icon_paths() -> Vec<&'static str> {
+    vec![
+        "PointZ/android/app/src/main/res/mipmap-xxhdpi/ic_launcher.png",
+        "PointZ/android/app/src/main/res/mipmap-xhdpi/ic_launcher.png",
+        "PointZ/android/app/src/main/res/mipmap-hdpi/ic_launcher.png",
+        "PointZ/android/app/src/main/res/mipmap-mdpi/ic_launcher.png",
+    ]
+}
+
+fn generate_candidate_paths() -> Vec<std::path::PathBuf> {
+    let mut paths = Vec::new();
+    
+    if let Ok(current_dir) = std::env::current_dir() {
+        paths.push(current_dir);
     }
     
-    tray_icon::Icon::from_rgba(icon_data, ICON_SIZE, ICON_SIZE)
-        .expect("Failed to create icon")
+    if let Some(parent) = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).parent() {
+        paths.push(parent.to_path_buf());
+    }
+    
+    paths
+}
+
+fn load_and_convert_icon(path: &std::path::Path, size: u32) -> Option<tray_icon::Icon> {
+    let img = image::open(path).ok()?;
+    let rgba = img.to_rgba8();
+    let resized = image::imageops::resize(
+        &rgba,
+        size,
+        size,
+        image::imageops::FilterType::Lanczos3,
+    );
+    
+    let icon_data: Vec<u8> = resized
+        .pixels()
+        .flat_map(|pixel| [pixel[0], pixel[1], pixel[2], pixel[3]])
+        .collect();
+    
+    tray_icon::Icon::from_rgba(icon_data, size, size).ok()
+}
+
+fn create_fallback_icon(size: u32) -> Option<tray_icon::Icon> {
+    let icon_data: Vec<u8> = (0..size)
+        .flat_map(|y| {
+            (0..size).flat_map(move |x| {
+                let pixel = calculate_fallback_pixel(x, y, size);
+                [pixel.0, pixel.1, pixel.2, pixel.3]
+            })
+        })
+        .collect();
+    
+    tray_icon::Icon::from_rgba(icon_data, size, size).ok()
+}
+
+fn calculate_fallback_pixel(x: u32, y: u32, size: u32) -> (u8, u8, u8, u8) {
+    let center = size as f32 / 2.0;
+    let dx = x as f32 - center;
+    let dy = y as f32 - center;
+    let distance = (dx * dx + dy * dy).sqrt();
+    let radius = center - 2.0;
+    
+    if distance < radius {
+        if distance < 4.0 {
+            (100, 150, 255, 255)
+        } else {
+            (80, 130, 235, 255)
+        }
+    } else {
+        (0, 0, 0, 0)
+    }
 }
 

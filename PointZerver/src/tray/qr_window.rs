@@ -39,60 +39,147 @@ fn show_qr_window(data: &super::QrData) {
     }
     
     let window = gtk::Window::new(gtk::WindowType::Toplevel);
-    window.set_title("PointZ Server - QR Code");
-    window.set_default_size(400, 550);
+    window.set_title("PointZ Server");
+    window.set_default_size(350, 450);
     window.set_resizable(false);
+    window.set_decorated(false);
+    window.set_skip_taskbar_hint(true);
+    window.set_keep_above(true);
     
-    let vbox = gtk::Box::new(gtk::Orientation::Vertical, 10);
-    vbox.set_margin_top(20);
-    vbox.set_margin_bottom(20);
-    vbox.set_margin_start(20);
-    vbox.set_margin_end(20);
+    // Position window above system tray (bottom right)
+    if let Some(display) = gtk::gdk::Display::default() {
+        let monitor = display.primary_monitor()
+            .or_else(|| display.monitor_at_point(0, 0));
+        if let Some(monitor) = monitor {
+            let geometry = monitor.geometry();
+            let window_width = 350;
+            let window_height = 450;
+            let x = geometry.x() + geometry.width() - window_width - 20; // 20px from right edge
+            let y = geometry.y() + geometry.height() - window_height - 60; // 60px above bottom (above tray)
+            window.move_(x, y);
+        }
+    }
     
-    let title = gtk::Label::new(Some("<b>PointZ Server</b>"));
-    title.set_use_markup(true);
-    vbox.pack_start(&title, false, false, 0);
+    let vbox = gtk::Box::new(gtk::Orientation::Vertical, 12);
+    vbox.set_margin_top(16);
+    vbox.set_margin_bottom(16);
+    vbox.set_margin_start(16);
+    vbox.set_margin_end(16);
     
-    let ip_label = gtk::Label::new(Some(&format!("Server IP: {}", data.ip)));
-    vbox.pack_start(&ip_label, false, false, 0);
+    // Download link with close button on the right
+    let window_clone = window.clone();
+    let close_button = gtk::Button::new();
+    let close_label = gtk::Label::new(Some("×"));
+    close_label.set_markup("<span size='xx-large' weight='bold'>×</span>");
+    close_button.add(&close_label);
+    close_button.set_relief(gtk::ReliefStyle::None);
+    close_button.set_opacity(0.6);
+    close_button.set_size_request(32, 32);
+    close_button.connect_clicked(move |_| {
+        window_clone.hide();
+    });
     
-    let port_label = gtk::Label::new(Some("Ports: Discovery=45454, Command=45455"));
-    vbox.pack_start(&port_label, false, false, 0);
+    let link = gtk::LinkButton::with_label(&data.download_url, "Download APK or use QR code");
     
-    let separator1 = gtk::Separator::new(gtk::Orientation::Horizontal);
-    vbox.pack_start(&separator1, false, false, 5);
+    let download_box = gtk::Box::new(gtk::Orientation::Horizontal, 0);
+    download_box.set_halign(gtk::Align::Fill);
+    download_box.pack_start(&link, true, true, 0);
+    download_box.pack_end(&close_button, false, false, 0);
     
-    let scan_label = gtk::Label::new(Some("Scan QR code to download mobile app:"));
-    vbox.pack_start(&scan_label, false, false, 0);
+    vbox.pack_start(&download_box, false, false, 0);
     
     if let Some(pixbuf) = generate_qr_pixbuf(&data.download_url) {
         let image = gtk::Image::from_pixbuf(Some(&pixbuf));
-        vbox.pack_start(&image, false, false, 10);
+        vbox.pack_start(&image, false, false, 8);
     }
     
-    let separator2 = gtk::Separator::new(gtk::Orientation::Horizontal);
-    vbox.pack_start(&separator2, false, false, 5);
-    
-    let manual_label = gtk::Label::new(Some("Or download manually:"));
-    vbox.pack_start(&manual_label, false, false, 0);
-    
-    let link = gtk::LinkButton::with_label(&data.download_url, &data.download_url);
-    vbox.pack_start(&link, false, false, 0);
-    
-    let platform_info = gtk::Label::new(Some("Direct download link for Android APK.\nInstall on your phone to control this PC."));
-    platform_info.set_line_wrap(true);
-    vbox.pack_start(&platform_info, false, false, 5);
-    
-    let info_label = gtk::Label::new(Some("App will auto-discover this server on the same network."));
+    let info_label = gtk::Label::new(Some("App will auto-discover this server on the same network"));
+    info_label.set_opacity(0.6);
+    info_label.set_line_wrap(true);
+    info_label.set_justify(gtk::Justification::Center);
     vbox.pack_start(&info_label, false, false, 0);
+    
+    // Spacer to push bottom info to bottom
+    let spacer = gtk::Box::new(gtk::Orientation::Vertical, 0);
+    vbox.pack_start(&spacer, true, true, 0);
+    
+    // Bottom box with IP on left and version on right
+    let bottom_box = gtk::Box::new(gtk::Orientation::Horizontal, 0);
+    bottom_box.set_halign(gtk::Align::Fill);
+    
+    // IP label and feedback label container
+    let ip_container = gtk::Box::new(gtk::Orientation::Horizontal, 4);
+    
+    let ip_label = gtk::Label::new(Some(&data.ip));
+    ip_label.set_opacity(0.5);
+    ip_label.set_halign(gtk::Align::Start);
+    ip_label.set_selectable(true);
+    
+    // Feedback label for "Copied!" message
+    let feedback_label = gtk::Label::new(Some(""));
+    feedback_label.set_opacity(0.0);
+    feedback_label.set_halign(gtk::Align::Start);
+    
+    // Make IP clickable to copy to clipboard using a button styled as text
+    let ip_button = gtk::Button::new();
+    ip_button.add(&ip_label);
+    ip_button.set_relief(gtk::ReliefStyle::None);
+    ip_button.set_can_focus(false);
+    
+    // Style the button to look like text
+    let ip_to_copy = data.ip.clone();
+    let feedback_label_clone = feedback_label.clone();
+    ip_button.connect_clicked(move |_| {
+        let clipboard = gtk::Clipboard::get(&gtk::gdk::SELECTION_CLIPBOARD);
+        clipboard.set_text(&ip_to_copy);
+        
+        // Show "Copied!" feedback
+        let feedback_for_timeout = feedback_label_clone.clone();
+        feedback_label_clone.set_text("Copied!");
+        feedback_label_clone.set_opacity(1.0);
+        
+        // Fade out after 1.5 seconds
+        glib::timeout_add_local(std::time::Duration::from_millis(1500), move || {
+            feedback_for_timeout.set_opacity(0.0);
+            feedback_for_timeout.set_text("");
+            glib::ControlFlow::Break
+        });
+    });
+    
+    ip_container.pack_start(&ip_button, false, false, 0);
+    ip_container.pack_start(&feedback_label, false, false, 0);
+    
+    bottom_box.pack_start(&ip_container, false, false, 0);
+    
+    let version_label = gtk::Label::new(Some(&format!("v{}", env!("CARGO_PKG_VERSION"))));
+    version_label.set_opacity(0.5);
+    version_label.set_halign(gtk::Align::End);
+    bottom_box.pack_end(&version_label, false, false, 0);
+    
+    vbox.pack_start(&bottom_box, false, false, 0);
     
     window.add(&vbox);
     window.show_all();
     window.present();
     
+    // Close on click outside (focus out), escape key, or delete event
+    window.connect_focus_out_event(|window, _| {
+        window.hide();
+        glib::Propagation::Stop
+    });
+    
     window.connect_delete_event(|window, _| {
         window.hide();
         glib::Propagation::Stop
+    });
+    
+    window.connect_key_press_event(|window, event| {
+        if event.keyval() == gtk::gdk::keys::constants::Escape {
+            window.hide();
+            glib::Propagation::Stop
+        } else {
+            glib::Propagation::Proceed
+        }
     });
     
     unsafe {
