@@ -11,7 +11,10 @@ use gtk::{self, glib};
 pub struct TrayManager {
     #[cfg(not(target_os = "linux"))]
     _tray_icon: tray_icon::TrayIcon,
+    #[cfg(target_os = "macos")]
     show_qr_tx: mpsc::UnboundedSender<QrData>,
+    #[cfg(not(target_os = "macos"))]
+    _show_qr_tx: mpsc::UnboundedSender<QrData>,
 }
 
 #[derive(Clone)]
@@ -102,7 +105,7 @@ impl TrayManager {
             std::thread::sleep(std::time::Duration::from_millis(100));
 
             Ok(Self {
-                show_qr_tx,
+                _show_qr_tx: show_qr_tx,
             })
         }
 
@@ -146,13 +149,21 @@ impl TrayManager {
                 });
             });
 
+            #[cfg(target_os = "macos")]
             return Ok(Self {
                 _tray_icon: tray_icon,
                 show_qr_tx,
             });
+
+            #[cfg(not(target_os = "macos"))]
+            return Ok(Self {
+                _tray_icon: tray_icon,
+                _show_qr_tx: show_qr_tx,
+            });
         }
     }
 
+    #[cfg(target_os = "macos")]
     pub fn get_show_qr_sender(&self) -> mpsc::UnboundedSender<QrData> {
         self.show_qr_tx.clone()
     }
