@@ -6,49 +6,36 @@ on:
       - main
     paths:
       - 'PointZerver/**'
+      - 'PointZ/**'
       - '.github/workflows/test-build.yml'
       - 'Cargo.toml'
       - 'Cargo.lock'
+      - 'PointZ/pubspec.yaml'
+      - 'PointZ/pubspec.lock'
   pull_request:
     branches:
       - main
     paths:
       - 'PointZerver/**'
+      - 'PointZ/**'
       - '.github/workflows/test-build.yml'
       - 'Cargo.toml'
       - 'Cargo.lock'
+      - 'PointZ/pubspec.yaml'
+      - 'PointZ/pubspec.lock'
 
 jobs:
-  test-build:
-    name: Test Build - ${{ matrix.name_suffix }}
-    runs-on: ${{ matrix.os }}
-    strategy:
-      matrix:
-        include:
-          - os: ubuntu-latest
-            target: x86_64-unknown-linux-gnu
-            name_suffix: Linux (x86_64)
-          - os: windows-latest
-            target: x86_64-pc-windows-msvc
-            name_suffix: Windows (x86_64)
-          - os: macos-latest
-            target: x86_64-apple-darwin
-            name_suffix: macOS (Intel)
-          - os: macos-latest
-            target: aarch64-apple-darwin
-            name_suffix: macOS (Apple Silicon)
-
+  rust-test:
+    name: Rust Tests
+    runs-on: ubuntu-latest
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
-        with:
-          targets: ${{ matrix.target }}
 
       - name: Install Linux dependencies
-        if: matrix.os == 'ubuntu-latest'
         run: |
           sudo apt-get update
           sudo apt-get install -y \
@@ -67,32 +54,113 @@ jobs:
             libxkbcommon-x11-dev \
             libxdo-dev
 
-      - name: Cache cargo registry
-        uses: actions/cache@v4
+      - name: Cache Rust dependencies
+        uses: swatinem/rust-cache@v2
         with:
-          path: |
-            ~/.cargo/bin/
-            ~/.cargo/registry/index/
-            ~/.cargo/registry/cache/
-            ~/.cargo/git/db/
-            PointZerver/target/
-          key: ${{ runner.os }}-cargo-${{ matrix.target }}-${{ hashFiles('**/Cargo.lock') }}
-          restore-keys: |
-            ${{ runner.os }}-cargo-${{ matrix.target }}-
+          workspaces: PointZerver
 
-      - name: Build release binary
+      - name: Run tests
         working-directory: PointZerver
+        run: cargo test --workspace
+
+      - name: Run clippy
+        working-directory: PointZerver
+        run: cargo clippy --workspace -- -D warnings
+
+  flutter-test:
+    name: Flutter Tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.24.0'
+          cache: true
+
+      - name: Get dependencies
+        working-directory: PointZ
+        run: flutter pub get
+
+      - name: Run tests
+        working-directory: PointZ
+        run: flutter test
+
+  build-check:
+    name: Build Check (Rust)
+    runs-on: ubuntu-latest
+    needs: rust-test
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Install Linux dependencies
         run: |
-          cargo build --release --target ${{ matrix.target }}
+          sudo apt-get update
+          sudo apt-get install -y \
+            pkg-config \
+            libgtk-3-dev \
+            libgdk-pixbuf2.0-dev \
+            libatk1.0-dev \
+            libpango1.0-dev \
+            libcairo2-dev \
+            libglib2.0-dev \
+            libwebkit2gtk-4.1-dev \
+            libayatana-appindicator3-dev \
+            libx11-dev \
+            libxcb1-dev \
+            libxkbcommon-dev \
+            libxkbcommon-x11-dev \
+            libxdo-dev
+
+      - name: Cache Rust dependencies
+        uses: swatinem/rust-cache@v2
+        with:
+          workspaces: PointZerver
+
+      - name: Build debug binary
+        working-directory: PointZerver
+        run: cargo build --workspace
 
       - name: Verify binary exists
-        shell: bash
         run: |
-          if [[ "${{ runner.os }}" == "Windows" ]]; then
-            test -f PointZerver/target/${{ matrix.target }}/release/pointzerver.exe || exit 1
-            echo "✓ Windows binary built successfully"
-          else
-            test -f PointZerver/target/${{ matrix.target }}/release/pointzerver || exit 1
-            echo "✓ ${{ matrix.os }} binary built successfully"
-          fi
+          test -f PointZerver/target/debug/pointzerver || exit 1
+          echo "✓ Debug binary built successfully"
 
+  flutter-build:
+    name: Build Check (Flutter)
+    runs-on: ubuntu-latest
+    needs: flutter-test
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.24.0'
+          cache: true
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Get dependencies
+        working-directory: PointZ
+        run: flutter pub get
+
+      - name: Build debug APK
+        working-directory: PointZ
+        run: flutter build apk --debug
+
+      - name: Verify APK exists
+        run: |
+          test -f PointZ/build/app/outputs/flutter-apk/app-debug.apk || exit 1
+          echo "✓ Debug APK built successfully"
