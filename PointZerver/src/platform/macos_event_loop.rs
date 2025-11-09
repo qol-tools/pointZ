@@ -101,8 +101,11 @@ fn get_local_ip_string() -> String {
 
 /// Run the Cocoa event loop on the main thread (required for tray icons on macOS)
 fn run_cocoa_event_loop() {
+    use cocoa::appkit::{NSApp, NSApplicationActivationPolicyAccessory};
+
     unsafe {
-        let app = NSApplication::sharedApplication(nil);
+        let app = NSApp();
+        app.setActivationPolicy_(NSApplicationActivationPolicyAccessory);
         app.run();
     }
 }

@@ -1,13 +1,17 @@
 #[cfg(target_os = "linux")]
 use gtk::{prelude::*, glib};
 use tokio::sync::mpsc;
-#[cfg(target_os = "linux")]
+
+#[cfg(any(target_os = "linux", target_os = "macos"))]
 use qrcode::QrCode;
-#[cfg(target_os = "linux")]
+#[cfg(any(target_os = "linux", target_os = "macos"))]
 use image::Rgb;
 
 #[cfg(target_os = "linux")]
 static mut QR_WINDOW: Option<gtk::Window> = None;
+
+#[cfg(target_os = "macos")]
+mod macos_window;
 
 pub async fn run_qr_window(mut rx: mpsc::UnboundedReceiver<super::QrData>) {
     #[cfg(target_os = "linux")]
@@ -19,13 +23,19 @@ pub async fn run_qr_window(mut rx: mpsc::UnboundedReceiver<super::QrData>) {
             });
         }
     }
-    
-    #[cfg(not(target_os = "linux"))]
+
+    #[cfg(target_os = "macos")]
     {
-        // On macOS/Windows, QR code display not yet implemented
-        // For now, just consume the channel
+        while let Some(data) = rx.recv().await {
+            macos_window::show_qr_window(&data);
+        }
+    }
+
+    #[cfg(target_os = "windows")]
+    {
+        // On Windows, QR code display not yet implemented
         while let Some(_data) = rx.recv().await {
-            // TODO: Implement native QR window for macOS/Windows
+            // TODO: Implement native QR window for Windows
         }
     }
 }

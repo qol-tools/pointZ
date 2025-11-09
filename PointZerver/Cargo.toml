@@ -35,6 +35,7 @@ rdev = "0.5"
 core-foundation = "0.10"
 cocoa = "0.25"
 objc = "0.2"
+dispatch = "0.2"
 
 [package.metadata.deb]
 maintainer = "KMRH47"
