@@ -45,6 +45,8 @@ jobs:
         uses: swatinem/rust-cache@v2
         with:
           workspaces: PointZerver
+          shared-key: "rust-cache"
+          cache-all-crates: true
 
       - name: Run clippy
         working-directory: PointZerver
@@ -52,7 +54,7 @@ jobs:
 
       - name: Run tests
         working-directory: PointZerver
-        run: cargo test --workspace
+        run: cargo test --workspace --no-fail-fast
 
   flutter-test:
     name: Flutter Test
