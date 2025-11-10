@@ -1,6 +1,5 @@
 use anyhow::Result;
 use cocoa::appkit::NSApplication;
-use cocoa::base::nil;
 use core_foundation::runloop::{CFRunLoopGetMain, CFRunLoopWakeUp};
 use tray_icon::TrayIconEvent;
 

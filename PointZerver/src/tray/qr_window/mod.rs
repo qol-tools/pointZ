@@ -2,9 +2,9 @@
 use gtk::{prelude::*, glib};
 use tokio::sync::mpsc;
 
-#[cfg(any(target_os = "linux", target_os = "macos"))]
+#[cfg(target_os = "linux")]
 use qrcode::QrCode;
-#[cfg(any(target_os = "linux", target_os = "macos"))]
+#[cfg(target_os = "linux")]
 use image::Rgb;
 
 #[cfg(target_os = "linux")]

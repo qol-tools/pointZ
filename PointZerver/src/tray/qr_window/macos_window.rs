@@ -1,3 +1,6 @@
+// Suppress warnings from objc crate macros about cargo-clippy cfg
+#![allow(unexpected_cfgs)]
+
 use cocoa::appkit::{NSWindow, NSWindowStyleMask, NSBackingStoreType};
 use cocoa::base::{id, nil, YES, NO};
 use cocoa::foundation::{NSRect, NSPoint, NSSize, NSString, NSAutoreleasePool};
@@ -56,12 +59,12 @@ unsafe fn create_window() -> id {
         rect,
         style_mask,
         NSBackingStoreType::NSBackingStoreBuffered,
-        false,
+        NO,
     );
 
     let title = NSString::alloc(nil).init_str("PointZ Server - QR Code");
     window.setTitle_(title);
-    window.setReleasedWhenClosed_(false);
+    window.setReleasedWhenClosed_(NO);
 
     window
 }
@@ -76,7 +79,6 @@ unsafe fn get_screen_frame() -> NSRect {
 
 /// Set window content with QR code and info
 unsafe fn set_window_content(window: id, qr_image: &RgbaImage, ip: &str) {
-    use cocoa::appkit::{NSView, NSTextField, NSImageView};
 
     // Create main content view
     let content_view: id = msg_send![class!(NSView), alloc];
@@ -134,9 +136,6 @@ unsafe fn create_label(text: &str, x: f64, y: f64, width: f64, height: f64) -> i
 
 /// Create NSImage from RGBA image data
 unsafe fn create_ns_image_from_rgba(rgba_image: &RgbaImage) -> id {
-    use core_foundation::base::TCFType;
-    use core_foundation::data::CFData;
-
     let (width, height) = rgba_image.dimensions();
     let raw_data = rgba_image.as_raw();
 

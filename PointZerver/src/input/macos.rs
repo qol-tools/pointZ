@@ -19,6 +19,7 @@ impl InputHandlerImpl {
         })
     }
 
+    #[allow(dead_code)]
     fn get_cursor_position() -> Option<(f64, f64)> {
         // macOS doesn't have X11, use fallback
         // rdev doesn't provide cursor position API, so we'll use a fallback
