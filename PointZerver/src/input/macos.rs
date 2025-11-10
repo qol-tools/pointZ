@@ -6,9 +6,13 @@ use rdev::{simulate, Button, Key, EventType, SimulateError};
 use std::time::Duration;
 use std::sync::Mutex;
 
+#[link(name = "CoreGraphics", kind = "framework")]
+extern "C" {}
+
 pub struct InputHandlerImpl {
     current_pos: Mutex<Option<(f64, f64)>>,
     modifier_state: Mutex<ModifierKeys>,
+    button_state: Mutex<Option<Button>>,
 }
 
 impl InputHandlerImpl {
@@ -16,6 +20,7 @@ impl InputHandlerImpl {
         Ok(Self {
             current_pos: Mutex::new(None),
             modifier_state: Mutex::new(ModifierKeys::default()),
+            button_state: Mutex::new(None),
         })
     }
 
@@ -42,6 +47,7 @@ impl InputHandlerTrait for InputHandlerImpl {
     async fn mouse_move(&self, x: f64, y: f64) -> Result<()> {
         // x and y are relative deltas, not absolute positions
         let mut pos_opt = self.current_pos.lock().unwrap();
+        let button_held = self.button_state.lock().unwrap().is_some();
         
         let (new_x, new_y) = if let Some((px, py)) = *pos_opt {
             (px + x, py + y)
@@ -53,10 +59,18 @@ impl InputHandlerTrait for InputHandlerImpl {
         
         *pos_opt = Some((new_x, new_y));
         
-        send_event(EventType::MouseMove {
-            x: new_x,
-            y: new_y,
-        })?;
+        // On macOS, when a button is held down, we need to use Core Graphics
+        // to send mouse drag events instead of just mouse move events.
+        // This ensures the window dragging works correctly.
+        if button_held {
+            let button = *self.button_state.lock().unwrap();
+            Self::send_mouse_drag(new_x, new_y, button)?;
+        } else {
+            send_event(EventType::MouseMove {
+                x: new_x,
+                y: new_y,
+            })?;
+        }
         Ok(())
     }
     
@@ -68,8 +82,10 @@ impl InputHandlerTrait for InputHandlerImpl {
             _ => Button::Left,
         };
         
+        *self.button_state.lock().unwrap() = Some(button_enum);
         send_event(EventType::ButtonPress(button_enum))?;
         tokio::time::sleep(Duration::from_millis(ServerConfig::MOUSE_CLICK_DELAY_MS)).await;
+        *self.button_state.lock().unwrap() = None;
         send_event(EventType::ButtonRelease(button_enum))?;
         Ok(())
     }
@@ -82,6 +98,7 @@ impl InputHandlerTrait for InputHandlerImpl {
             _ => Button::Left,
         };
         
+        *self.button_state.lock().unwrap() = Some(button_enum);
         send_event(EventType::ButtonPress(button_enum))?;
         Ok(())
     }
@@ -94,6 +111,7 @@ impl InputHandlerTrait for InputHandlerImpl {
             _ => Button::Left,
         };
         
+        *self.button_state.lock().unwrap() = None;
         send_event(EventType::ButtonRelease(button_enum))?;
         Ok(())
     }
@@ -181,6 +199,63 @@ impl InputHandlerTrait for InputHandlerImpl {
 }
 
 impl InputHandlerImpl {
+    /// Send a mouse drag event using Core Graphics on macOS.
+    /// This is necessary because rdev's MouseMove doesn't maintain button state,
+    /// which is required for window dragging on macOS.
+    fn send_mouse_drag(x: f64, y: f64, button: Option<Button>) -> Result<()> {
+        unsafe {
+            #[repr(C)]
+            struct CGPoint {
+                x: f64,
+                y: f64,
+            }
+            
+            // Create a CGEvent for mouse drag
+            // kCGEventLeftMouseDragged = 6
+            // kCGEventRightMouseDragged = 7
+            // kCGEventOtherMouseDragged = 8
+            let event_type = match button {
+                Some(Button::Left) => 6u32,   // kCGEventLeftMouseDragged
+                Some(Button::Right) => 7u32,  // kCGEventRightMouseDragged
+                Some(Button::Middle) => 8u32, // kCGEventOtherMouseDragged
+                _ => 6u32, // Default to left button
+            };
+            
+            // Use CGEventCreateMouseEvent to create a drag event
+            extern "C" {
+                fn CGEventCreateMouseEvent(
+                    source: *const std::ffi::c_void,
+                    mouseType: u32,
+                    mouseCursorPosition: CGPoint,
+                    mouseButton: u32,
+                ) -> *const std::ffi::c_void;
+                fn CGEventPost(
+                    tap: u32,
+                    event: *const std::ffi::c_void,
+                ) -> i32;
+                fn CFRelease(ptr: *const std::ffi::c_void);
+            }
+            
+            let point = CGPoint { x, y };
+            let event = CGEventCreateMouseEvent(
+                std::ptr::null(),
+                event_type,
+                point,
+                0, // mouseButton - not needed for drag events
+            );
+            
+            if event.is_null() {
+                return Err(anyhow::anyhow!("Failed to create mouse drag event"));
+            }
+            
+            // Post the event (kCGHIDEventTap = 0)
+            CGEventPost(0, event);
+            CFRelease(event);
+        }
+        
+        Ok(())
+    }
+    
     fn apply_modifiers(state: &Mutex<ModifierKeys>, modifiers: &ModifierKeys) -> Result<()> {
         let mut state_guard = state.lock().unwrap();
         
