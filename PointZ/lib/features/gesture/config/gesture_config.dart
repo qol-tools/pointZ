@@ -11,6 +11,7 @@ class GestureConfig {
   int get deadZoneScroll => 10;
   int get tapDelayMs => 50;
   int get doubleTapDelayMs => 200;
+  int get holdToDragDelayMs => 250;
   int get rightClickCooldownMs => 150;
   int get rightClickButtonHoldMs => 50;
 

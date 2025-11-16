@@ -13,6 +13,10 @@ class GestureState {
   bool waitingForSecondTap = false;
   DateTime? rightClickCooldownUntil;
   bool rightClickJustSent = false;
+  DateTime? secondTapHoldStartTime;
+  bool inDragMode = false;
+  bool movedSinceLastDown = false;
+  bool dragModeJustActivated = false;
 
   void reset() {
     previousTapAction = TouchAction.none;
@@ -27,6 +31,10 @@ class GestureState {
     waitingForSecondTap = false;
     rightClickCooldownUntil = null;
     rightClickJustSent = false;
+    secondTapHoldStartTime = null;
+    inDragMode = false;
+    movedSinceLastDown = false;
+    dragModeJustActivated = false;
   }
 
   void cancelSingleClick() {

@@ -47,12 +47,11 @@ void main() {
     test('first tap sets waitingForSecondTap', () {
       // Arrange
       final state = GestureState();
-      final executor = MockMouseExecutor();
       bool windowStarted = false;
       final handler = DownHandler(
         state,
-        executor,
         () => windowStarted = true,
+        () {},
       );
       final event = GestureEvent(action: TouchAction.down, x: 10, y: 20);
 
@@ -62,17 +61,15 @@ void main() {
       // Assert
       expect(state.waitingForSecondTap, true);
       expect(windowStarted, true);
-      expect(executor.calls.isEmpty, true);
     });
 
-    test('second tap within window starts holding', () async {
+    test('second tap records hold start time', () async {
       // Arrange
       final state = GestureState();
-      final executor = MockMouseExecutor();
       state.canDoubleClick = true;
       final handler = DownHandler(
         state,
-        executor,
+        () {},
         () {},
       );
       final event = GestureEvent(action: TouchAction.down, x: 10, y: 20);
@@ -82,8 +79,7 @@ void main() {
 
       // Assert
       expect(state.waitingForSecondTap, false);
-      expect(state.holdingPrimaryMouseButton, true);
-      expect(executor.calls, ['mouseDown(1)']);
+      expect(state.secondTapHoldStartTime, isNotNull);
     });
   });
 

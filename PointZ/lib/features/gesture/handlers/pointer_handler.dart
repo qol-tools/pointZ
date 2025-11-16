@@ -13,10 +13,8 @@ class PointerHandler {
   PointerHandler(this._state, this._executor, this._config);
 
   Future<void> handleDown(GestureEvent event) async {
-    // Cancel any pending single-click timer when two-finger gesture starts
     _state.cancelSingleClick();
 
-    // Ignore if we should block due to recent right-click
     if (_state.shouldIgnoreDueToRightClick()) {
       return;
     }
@@ -29,43 +27,39 @@ class PointerHandler {
   }
 
   Future<void> handleUp() async {
-    // Ignore if we should block due to recent right-click
     if (_state.shouldIgnoreDueToRightClick()) {
-      // Don't reset previousTapAction during cooldown - keep it so we know it was a pointer gesture
       return;
     }
 
-    if (!_state.moving && !_state.scrolling) {
-      final button = _getMouseButton(_state.previousTapAction);
-      
-      // Cancel any pending single-click timer
-      _state.cancelSingleClick();
-      
-      // Set cooldown IMMEDIATELY before sending click to block all subsequent events
-      _state.rightClickCooldownUntil = DateTime.now().add(
-        Duration(milliseconds: _config.rightClickCooldownMs),
-      );
-      _state.rightClickJustSent = true;
-      
-      // Use mouseDown + mouseUp with delay
-      await _executor.mouseDown(button);
-      await Future.delayed(Duration(milliseconds: _config.rightClickButtonHoldMs));
-      await _executor.mouseUp(button);
-      
-      // Reset the flag after cooldown
-      Future.delayed(Duration(milliseconds: _config.rightClickCooldownMs), () {
-        _state.rightClickJustSent = false;
-        // Only reset previousTapAction after cooldown completes
-        _state.previousTapAction = TouchAction.none;
-      });
-    } else {
+    if (_state.moving || _state.scrolling) {
       _state.scrolling = false;
       _state.moving = false;
       _state.previousTapAction = TouchAction.none;
+      return;
     }
+
+    await _sendPointerClick();
   }
 
-  /// Maps TouchAction to mouse button number
+  Future<void> _sendPointerClick() async {
+    _state.cancelSingleClick();
+
+    final button = _getMouseButton(_state.previousTapAction);
+    _state.rightClickCooldownUntil = DateTime.now().add(
+      Duration(milliseconds: _config.rightClickCooldownMs),
+    );
+    _state.rightClickJustSent = true;
+
+    await _executor.mouseDown(button);
+    await Future.delayed(Duration(milliseconds: _config.rightClickButtonHoldMs));
+    await _executor.mouseUp(button);
+
+    Future.delayed(Duration(milliseconds: _config.rightClickCooldownMs), () {
+      _state.rightClickJustSent = false;
+      _state.previousTapAction = TouchAction.none;
+    });
+  }
+
   int _getMouseButton(TouchAction action) {
     return action == TouchAction.pointer2Down ? 2 : 3;
   }
