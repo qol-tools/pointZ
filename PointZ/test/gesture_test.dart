@@ -51,7 +51,6 @@ void main() {
       final handler = DownHandler(
         state,
         () => windowStarted = true,
-        () {},
       );
       final event = GestureEvent(action: TouchAction.down, x: 10, y: 20);
 
@@ -69,7 +68,6 @@ void main() {
       state.canDoubleClick = true;
       final handler = DownHandler(
         state,
-        () {},
         () {},
       );
       final event = GestureEvent(action: TouchAction.down, x: 10, y: 20);

@@ -85,6 +85,8 @@ void main() {
       await handler.handleEvent(firstDown);
       await Future.delayed(const Duration(milliseconds: 50));
       await handler.handleEvent(secondDown);
+      await Future.delayed(
+          Duration(milliseconds: config.holdToDragDelayMs + 50));
 
       // Assert
       expect(executor.calls, ['mouseDown(1)']);
@@ -112,23 +114,31 @@ void main() {
         x: 60,
         y: 70,
       );
+      final thirdDown = GestureEvent(
+        action: TouchAction.down,
+        x: 60,
+        y: 70,
+      );
       final upEvent = GestureEvent(
         action: TouchAction.up,
-        x: 0,
-        y: 0,
+        x: 60,
+        y: 70,
       );
 
       // Act
       await handler.handleEvent(firstDown);
       await handler.handleEvent(secondDown);
+      await Future.delayed(
+          Duration(milliseconds: config.holdToDragDelayMs + 50));
       await handler.handleEvent(firstMove);
       await handler.handleEvent(secondMove);
+      await handler.handleEvent(thirdDown);
       await handler.handleEvent(upEvent);
 
       // Assert
       expect(executor.calls[0], 'mouseDown(1)');
-      expect(executor.calls[1], contains('mouseMove'));
-      expect(executor.calls[executor.calls.length - 1], 'mouseUp(1)');
+      expect(executor.calls.where((call) => call.contains('mouseMove')).isNotEmpty, true);
+      expect(executor.calls.last, 'mouseUp(1)');
     });
 
     test('movement cancels double-click window', () async {
