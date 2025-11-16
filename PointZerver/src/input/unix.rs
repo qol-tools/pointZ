@@ -73,13 +73,11 @@ impl InputHandlerTrait for InputHandlerImpl {
         
         let (new_x, new_y) = if let Some((px, py)) = *pos_opt {
             (px + x, py + y)
+        } else if let Some((cx, cy)) = Self::get_cursor_position() {
+            (cx + x, cy + y)
         } else {
-            if let Some((cx, cy)) = Self::get_cursor_position() {
-                (cx + x, cy + y)
-            } else {
-                (ServerConfig::FALLBACK_SCREEN_WIDTH / 2.0 + x, 
-                 ServerConfig::FALLBACK_SCREEN_HEIGHT / 2.0 + y)
-            }
+            (ServerConfig::FALLBACK_SCREEN_WIDTH / 2.0 + x,
+             ServerConfig::FALLBACK_SCREEN_HEIGHT / 2.0 + y)
         };
         
         *pos_opt = Some((new_x, new_y));
