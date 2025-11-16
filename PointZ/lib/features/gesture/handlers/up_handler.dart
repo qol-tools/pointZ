@@ -10,32 +10,28 @@ class UpHandler {
 
   Future<void> handle() async {
     if (_state.shouldIgnoreDueToRightClick()) {
-      _resetState();
+      _state.moving = false;
+      _state.lastMoveTime = null;
+      _state.previousTapAction = TouchAction.none;
       return;
     }
 
     if (_state.holdingPrimaryMouseButton) {
       await _releaseButton();
-      return;
-    }
-
-    if (_state.moving) {
+    } else if (_state.moving) {
       _state.waitingForSecondTap = false;
-      _resetState();
+      _state.moving = false;
+      _state.lastMoveTime = null;
+      _state.previousTapAction = TouchAction.none;
       return;
     }
 
-    _resetState();
+    _state.moving = false;
+    _state.lastMoveTime = null;
   }
 
   Future<void> _releaseButton() async {
     await _executor.mouseUp(1);
     _state.holdingPrimaryMouseButton = false;
-  }
-
-  void _resetState() {
-    _state.moving = false;
-    _state.lastMoveTime = null;
-    _state.previousTapAction = TouchAction.none;
   }
 }
