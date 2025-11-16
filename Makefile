@@ -1,10 +1,11 @@
-.PHONY: help setup check server-build server-run server-check server-clean server-release server-test client-get client-run client-build client-build-apk client-build-apk-debug client-install client-build-install client-build-install-debug client-devices client-logs client-clean client-test test run build clean server
+.PHONY: help setup pair check server-build server-run server-check server-clean server-release server-test client-get client-run client-build client-build-apk client-build-apk-debug client-install client-build-install client-build-install-debug client-devices client-logs client-clean client-test test run build clean server client
 
 help:
 	@echo "PointZ - Client/Server Commands"
 	@echo ""
 	@echo "Setup:"
 	@echo "  make setup          - Run setup script (checks dependencies, installs deps)"
+	@echo "  make pair           - Pair phone for wireless ADB (one-time setup)"
 	@echo "  make check          - Check if all dependencies are installed"
 	@echo ""
 	@echo "Distribution:"
@@ -14,7 +15,8 @@ help:
 	@echo "  make run              - Run Flutter app (hot reload: press 'r', hot restart: press 'R')"
 	@echo "  make build            - Build debug APK (shortcut for client-build-apk-debug)"
 	@echo "  make clean            - Clean Flutter build (shortcut for client-clean)"
-	@echo "  make server            - Run server (shortcut for server-run)"
+	@echo "  make server           - Run server (shortcut for server-run)"
+	@echo "  make client           - Run client (shortcut for client-run)"
 	@echo ""
 	@echo "Server (PointZerver):"
 	@echo "  make server-build    - Build release binary"
@@ -43,12 +45,23 @@ help:
 setup:
 	@./setup.sh
 
+pair:
+	@bash scripts/adb-pair-wireless.sh
+
 # Health check
 check:
 	@echo "Checking dependencies..."
 	@command -v cargo >/dev/null 2>&1 && echo "✓ Rust/cargo installed" || echo "✗ Rust/cargo not found"
 	@command -v flutter >/dev/null 2>&1 && echo "✓ Flutter installed" || echo "✗ Flutter not found"
 	@command -v git >/dev/null 2>&1 && echo "✓ Git installed" || echo "✗ Git not found"
+	@echo ""
+	@if echo "$(CURDIR)" | grep -q " "; then \
+		echo "✗ Project path contains spaces"; \
+		echo "  Flutter/Gradle cannot build from paths with spaces."; \
+		echo "  Move to a path without spaces (e.g., ~/pointZ)"; \
+	else \
+		echo "✓ Project path OK (no spaces)"; \
+	fi
 	@echo ""
 	@echo "Checking project dependencies..."
 	@cd PointZerver && cargo check --quiet 2>/dev/null && echo "✓ Server dependencies OK" || echo "✗ Server dependencies missing (run: make setup)"
@@ -79,13 +92,38 @@ client-get:
 	cd PointZ && flutter pub get
 
 client-run:
-	cd PointZ && flutter run
+	@bash scripts/adb-autoconnect.sh || true
+	@if echo "$(CURDIR)" | grep -q " "; then \
+		echo "⚠️  ERROR: Project path contains spaces"; \
+		echo ""; \
+		echo "Flutter/Gradle cannot build from paths with spaces."; \
+		echo "Move the project to a path without spaces, e.g.:"; \
+		echo "  ~/pointZ  or  /opt/pointZ  or  /home/username/dev/pointZ"; \
+		echo ""; \
+		exit 1; \
+	else \
+		cd PointZ && flutter run; \
+	fi
 
 client-build-apk:
-	cd PointZ && flutter build apk --release
+	@if echo "$(CURDIR)" | grep -q " "; then \
+		echo "⚠️  ERROR: Project path contains spaces."; \
+		echo "Flutter/Gradle cannot build from paths with spaces."; \
+		echo "Move the project to a path without spaces first."; \
+		exit 1; \
+	else \
+		cd PointZ && flutter build apk --release; \
+	fi
 
 client-build-apk-debug:
-	cd PointZ && flutter build apk --debug
+	@if echo "$(CURDIR)" | grep -q " "; then \
+		echo "⚠️  ERROR: Project path contains spaces."; \
+		echo "Flutter/Gradle cannot build from paths with spaces."; \
+		echo "Move the project to a path without spaces first."; \
+		exit 1; \
+	else \
+		cd PointZ && flutter build apk --debug; \
+	fi
 
 client-build-install: client-build-apk
 	cd PointZ && flutter install
@@ -115,4 +153,5 @@ run: client-run
 build: client-build-apk-debug
 clean: client-clean
 server: server-run
+client: client-run
 

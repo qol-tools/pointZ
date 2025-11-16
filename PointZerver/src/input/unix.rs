@@ -68,17 +68,15 @@ fn send_event(event_type: EventType) -> Result<()> {
 #[async_trait::async_trait]
 impl InputHandlerTrait for InputHandlerImpl {
     async fn mouse_move(&self, x: f64, y: f64) -> Result<()> {
-        // x and y are relative deltas, not absolute positions
-        let mut pos_opt = self.current_pos.lock().unwrap();
+        let mut pos_opt = self.current_pos.lock()
+            .expect("Cursor position mutex poisoned");
         
         let (new_x, new_y) = if let Some((px, py)) = *pos_opt {
             (px + x, py + y)
         } else {
-            // First movement - get actual cursor position to avoid jump
             if let Some((cx, cy)) = Self::get_cursor_position() {
                 (cx + x, cy + y)
             } else {
-                // Fallback: use center of screen if we can't get position
                 (ServerConfig::FALLBACK_SCREEN_WIDTH / 2.0 + x, 
                  ServerConfig::FALLBACK_SCREEN_HEIGHT / 2.0 + y)
             }
@@ -148,7 +146,6 @@ impl InputHandlerTrait for InputHandlerImpl {
     }
     
     async fn key_press(&self, key: &str, modifiers: &ModifierKeys) -> Result<()> {
-        // Apply modifiers first
         Self::apply_modifiers(&self.modifier_state, modifiers)?;
         
         if let Some(key_enum) = string_to_key(key) {
@@ -165,7 +162,8 @@ impl InputHandlerTrait for InputHandlerImpl {
     }
     
     async fn modifier_press(&self, modifier: &str) -> Result<()> {
-        let mut state = self.modifier_state.lock().unwrap();
+        let mut state = self.modifier_state.lock()
+            .expect("Modifier state mutex poisoned");
         match modifier.to_lowercase().as_str() {
             "ctrl" | "control" => {
                 state.ctrl = true;
@@ -189,7 +187,8 @@ impl InputHandlerTrait for InputHandlerImpl {
     }
     
     async fn modifier_release(&self, modifier: &str) -> Result<()> {
-        let mut state = self.modifier_state.lock().unwrap();
+        let mut state = self.modifier_state.lock()
+            .expect("Modifier state mutex poisoned");
         match modifier.to_lowercase().as_str() {
             "ctrl" | "control" => {
                 state.ctrl = false;
@@ -215,9 +214,9 @@ impl InputHandlerTrait for InputHandlerImpl {
 
 impl InputHandlerImpl {
     fn apply_modifiers(state: &Mutex<ModifierKeys>, modifiers: &ModifierKeys) -> Result<()> {
-        let mut state_guard = state.lock().unwrap();
+        let mut state_guard = state.lock()
+            .expect("Modifier state mutex poisoned");
         
-        // Press modifiers that need to be pressed
         if modifiers.ctrl && !state_guard.ctrl {
             send_event(EventType::KeyPress(Key::ControlLeft))?;
             state_guard.ctrl = true;
@@ -235,7 +234,6 @@ impl InputHandlerImpl {
             state_guard.meta = true;
         }
         
-        // Release modifiers that shouldn't be pressed
         if !modifiers.ctrl && state_guard.ctrl {
             send_event(EventType::KeyRelease(Key::ControlLeft))?;
             state_guard.ctrl = false;
@@ -263,6 +261,29 @@ fn string_to_key(s: &str) -> Option<Key> {
         "\n" | "\r" => Some(Key::Return),
         "\t" => Some(Key::Tab),
         "\x08" | "\x7f" => Some(Key::Backspace),
+        "." => Some(Key::Dot),
+        "," => Some(Key::Comma),
+        ";" => Some(Key::SemiColon),
+        ":" => Some(Key::SemiColon),
+        "!" => Some(Key::Num1),
+        "?" => Some(Key::Slash),
+        "-" => Some(Key::Minus),
+        "_" => Some(Key::Minus),
+        "=" => Some(Key::Equal),
+        "+" => Some(Key::Equal),
+        "[" => Some(Key::LeftBracket),
+        "]" => Some(Key::RightBracket),
+        "{" => Some(Key::LeftBracket),
+        "}" => Some(Key::RightBracket),
+        "(" => Some(Key::Num9),
+        ")" => Some(Key::Num0),
+        "'" => Some(Key::Quote),
+        "\"" => Some(Key::Quote),
+        "\\" => Some(Key::BackSlash),
+        "|" => Some(Key::BackSlash),
+        "/" => Some(Key::Slash),
+        "<" => Some(Key::Comma),
+        ">" => Some(Key::Dot),
         s if s.len() == 1 => {
             let ch = s.chars().next().unwrap();
             if ch.is_ascii_alphabetic() {

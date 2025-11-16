@@ -17,6 +17,7 @@ use crate::features::command::command_service::CommandService;
 #[cfg(not(target_os = "macos"))]
 #[tokio::main]
 async fn main() -> Result<()> {
+    env_logger::init();
     run_standard_event_loop().await
 }
 
@@ -44,7 +45,7 @@ async fn run_standard_event_loop() -> Result<()> {
 fn spawn_discovery_service(discovery_service: DiscoveryService) {
     tokio::spawn(async move {
         if let Err(e) = discovery_service.run().await {
-            eprintln!("Discovery loop error: {}", e);
+            log::error!("Discovery loop error: {}", e);
         }
     });
 }

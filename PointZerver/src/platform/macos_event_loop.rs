@@ -13,6 +13,7 @@ const DOWNLOAD_URL: &str = "https://github.com/KMRH47/pointZ-new/releases/latest
 
 /// Run the macOS-specific event loop with NSApplication on the main thread
 pub fn run_macos_event_loop() -> Result<()> {
+    env_logger::init();
     let tray_manager = tray::TrayManager::new()?;
     let show_qr_tx = tray_manager.get_show_qr_sender();
 
@@ -41,7 +42,7 @@ fn spawn_async_services() {
 
         rt.block_on(async {
             run_services().await
-                .unwrap_or_else(|e| eprintln!("Service initialization error: {}", e));
+                .unwrap_or_else(|e| log::error!("Service initialization error: {}", e));
         });
     });
 }
@@ -54,7 +55,7 @@ async fn run_services() -> Result<()> {
 
     tokio::spawn(async move {
         if let Err(e) = discovery_service.run().await {
-            eprintln!("Discovery loop error: {}", e);
+            log::error!("Discovery loop error: {}", e);
         }
     });
 

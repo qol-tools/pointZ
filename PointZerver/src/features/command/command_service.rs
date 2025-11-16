@@ -30,12 +30,12 @@ impl CommandService {
                 Ok((size, _addr)) => {
                     if let Ok(command) = serde_json::from_slice::<Command>(&buf[..size]) {
                         if let Err(e) = self.input_handler.handle_command(command).await {
-                            eprintln!("Command error: {}", e);
+                            log::error!("Command error: {}", e);
                         }
                     }
                 }
                 Err(e) => {
-                    eprintln!("Command receive error: {}", e);
+                    log::error!("Command receive error: {}", e);
                 }
             }
         }

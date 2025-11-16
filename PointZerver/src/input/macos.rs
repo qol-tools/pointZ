@@ -26,8 +26,6 @@ impl InputHandlerImpl {
 
     #[allow(dead_code)]
     fn get_cursor_position() -> Option<(f64, f64)> {
-        // macOS doesn't have X11, use fallback
-        // rdev doesn't provide cursor position API, so we'll use a fallback
         None
     }
 }
@@ -45,25 +43,24 @@ fn send_event(event_type: EventType) -> Result<()> {
 #[async_trait::async_trait]
 impl InputHandlerTrait for InputHandlerImpl {
     async fn mouse_move(&self, x: f64, y: f64) -> Result<()> {
-        // x and y are relative deltas, not absolute positions
-        let mut pos_opt = self.current_pos.lock().unwrap();
-        let button_held = self.button_state.lock().unwrap().is_some();
+        let mut pos_opt = self.current_pos.lock()
+            .expect("Cursor position mutex poisoned");
+        let button_held = self.button_state.lock()
+            .expect("Button state mutex poisoned")
+            .is_some();
         
         let (new_x, new_y) = if let Some((px, py)) = *pos_opt {
             (px + x, py + y)
         } else {
-            // First movement - use fallback center if we can't get position
             (ServerConfig::FALLBACK_SCREEN_WIDTH / 2.0 + x, 
              ServerConfig::FALLBACK_SCREEN_HEIGHT / 2.0 + y)
         };
         
         *pos_opt = Some((new_x, new_y));
         
-        // On macOS, when a button is held down, we need to use Core Graphics
-        // to send mouse drag events instead of just mouse move events.
-        // This ensures the window dragging works correctly.
         if button_held {
-            let button = *self.button_state.lock().unwrap();
+            let button = *self.button_state.lock()
+                .expect("Button state mutex poisoned");
             Self::send_mouse_drag(new_x, new_y, button)?;
         } else {
             send_event(EventType::MouseMove {
@@ -82,10 +79,12 @@ impl InputHandlerTrait for InputHandlerImpl {
             _ => Button::Left,
         };
         
-        *self.button_state.lock().unwrap() = Some(button_enum);
+        *self.button_state.lock()
+            .expect("Button state mutex poisoned") = Some(button_enum);
         send_event(EventType::ButtonPress(button_enum))?;
         tokio::time::sleep(Duration::from_millis(ServerConfig::MOUSE_CLICK_DELAY_MS)).await;
-        *self.button_state.lock().unwrap() = None;
+        *self.button_state.lock()
+            .expect("Button state mutex poisoned") = None;
         send_event(EventType::ButtonRelease(button_enum))?;
         Ok(())
     }
@@ -98,7 +97,8 @@ impl InputHandlerTrait for InputHandlerImpl {
             _ => Button::Left,
         };
         
-        *self.button_state.lock().unwrap() = Some(button_enum);
+        *self.button_state.lock()
+            .expect("Button state mutex poisoned") = Some(button_enum);
         send_event(EventType::ButtonPress(button_enum))?;
         Ok(())
     }
@@ -111,7 +111,8 @@ impl InputHandlerTrait for InputHandlerImpl {
             _ => Button::Left,
         };
         
-        *self.button_state.lock().unwrap() = None;
+        *self.button_state.lock()
+            .expect("Button state mutex poisoned") = None;
         send_event(EventType::ButtonRelease(button_enum))?;
         Ok(())
     }
@@ -133,7 +134,6 @@ impl InputHandlerTrait for InputHandlerImpl {
     }
     
     async fn key_press(&self, key: &str, modifiers: &ModifierKeys) -> Result<()> {
-        // Apply modifiers first
         Self::apply_modifiers(&self.modifier_state, modifiers)?;
         
         if let Some(key_enum) = string_to_key(key) {
@@ -150,7 +150,8 @@ impl InputHandlerTrait for InputHandlerImpl {
     }
     
     async fn modifier_press(&self, modifier: &str) -> Result<()> {
-        let mut state = self.modifier_state.lock().unwrap();
+        let mut state = self.modifier_state.lock()
+            .expect("Modifier state mutex poisoned");
         match modifier.to_lowercase().as_str() {
             "ctrl" | "control" => {
                 state.ctrl = true;
@@ -174,7 +175,8 @@ impl InputHandlerTrait for InputHandlerImpl {
     }
     
     async fn modifier_release(&self, modifier: &str) -> Result<()> {
-        let mut state = self.modifier_state.lock().unwrap();
+        let mut state = self.modifier_state.lock()
+            .expect("Modifier state mutex poisoned");
         match modifier.to_lowercase().as_str() {
             "ctrl" | "control" => {
                 state.ctrl = false;
@@ -199,9 +201,6 @@ impl InputHandlerTrait for InputHandlerImpl {
 }
 
 impl InputHandlerImpl {
-    /// Send a mouse drag event using Core Graphics on macOS.
-    /// This is necessary because rdev's MouseMove doesn't maintain button state,
-    /// which is required for window dragging on macOS.
     fn send_mouse_drag(x: f64, y: f64, button: Option<Button>) -> Result<()> {
         unsafe {
             #[repr(C)]
@@ -210,18 +209,13 @@ impl InputHandlerImpl {
                 y: f64,
             }
             
-            // Create a CGEvent for mouse drag
-            // kCGEventLeftMouseDragged = 6
-            // kCGEventRightMouseDragged = 7
-            // kCGEventOtherMouseDragged = 8
             let event_type = match button {
-                Some(Button::Left) => 6u32,   // kCGEventLeftMouseDragged
-                Some(Button::Right) => 7u32,  // kCGEventRightMouseDragged
-                Some(Button::Middle) => 8u32, // kCGEventOtherMouseDragged
-                _ => 6u32, // Default to left button
+                Some(Button::Left) => 6u32,
+                Some(Button::Right) => 7u32,
+                Some(Button::Middle) => 8u32,
+                _ => 6u32,
             };
             
-            // Use CGEventCreateMouseEvent to create a drag event
             extern "C" {
                 fn CGEventCreateMouseEvent(
                     source: *const std::ffi::c_void,
@@ -241,14 +235,13 @@ impl InputHandlerImpl {
                 std::ptr::null(),
                 event_type,
                 point,
-                0, // mouseButton - not needed for drag events
+                0,
             );
             
             if event.is_null() {
                 return Err(anyhow::anyhow!("Failed to create mouse drag event"));
             }
             
-            // Post the event (kCGHIDEventTap = 0)
             CGEventPost(0, event);
             CFRelease(event);
         }
@@ -257,9 +250,9 @@ impl InputHandlerImpl {
     }
     
     fn apply_modifiers(state: &Mutex<ModifierKeys>, modifiers: &ModifierKeys) -> Result<()> {
-        let mut state_guard = state.lock().unwrap();
+        let mut state_guard = state.lock()
+            .expect("Modifier state mutex poisoned");
         
-        // Press modifiers that need to be pressed
         if modifiers.ctrl && !state_guard.ctrl {
             send_event(EventType::KeyPress(Key::ControlLeft))?;
             state_guard.ctrl = true;
@@ -277,7 +270,6 @@ impl InputHandlerImpl {
             state_guard.meta = true;
         }
         
-        // Release modifiers that shouldn't be pressed
         if !modifiers.ctrl && state_guard.ctrl {
             send_event(EventType::KeyRelease(Key::ControlLeft))?;
             state_guard.ctrl = false;
@@ -305,6 +297,29 @@ fn string_to_key(s: &str) -> Option<Key> {
         "\n" | "\r" => Some(Key::Return),
         "\t" => Some(Key::Tab),
         "\x08" | "\x7f" => Some(Key::Backspace),
+        "." => Some(Key::Dot),
+        "," => Some(Key::Comma),
+        ";" => Some(Key::SemiColon),
+        ":" => Some(Key::SemiColon),
+        "!" => Some(Key::Num1),
+        "?" => Some(Key::Slash),
+        "-" => Some(Key::Minus),
+        "_" => Some(Key::Minus),
+        "=" => Some(Key::Equal),
+        "+" => Some(Key::Equal),
+        "[" => Some(Key::LeftBracket),
+        "]" => Some(Key::RightBracket),
+        "{" => Some(Key::LeftBracket),
+        "}" => Some(Key::RightBracket),
+        "(" => Some(Key::Num9),
+        ")" => Some(Key::Num0),
+        "'" => Some(Key::Quote),
+        "\"" => Some(Key::Quote),
+        "\\" => Some(Key::BackSlash),
+        "|" => Some(Key::BackSlash),
+        "/" => Some(Key::Slash),
+        "<" => Some(Key::Comma),
+        ">" => Some(Key::Dot),
         s if s.len() == 1 => {
             let ch = s.chars().next().unwrap();
             if ch.is_ascii_alphabetic() {
