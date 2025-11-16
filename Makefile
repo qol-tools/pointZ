@@ -153,5 +153,5 @@ run: client-run
 build: client-build-apk-debug
 clean: client-clean
 server: server-run
-client: client-run
+client: pair client-run
 
