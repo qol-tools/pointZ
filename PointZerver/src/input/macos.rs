@@ -9,11 +9,21 @@ use std::time::{Duration, Instant};
 #[link(name = "CoreGraphics", kind = "framework")]
 extern "C" {}
 
+const DRAG_BATCH_INTERVAL_MS: u64 = 16;
+
 pub struct InputHandlerImpl {
     current_pos: Mutex<Option<(f64, f64)>>,
     modifier_state: Mutex<ModifierKeys>,
     button_state: Mutex<Option<Button>>,
     last_click: Mutex<Option<ClickState>>,
+    drag_state: Mutex<DragState>,
+}
+
+struct DragState {
+    pending_x: f64,
+    pending_y: f64,
+    last_flush: Instant,
+    button: Option<Button>,
 }
 
 struct ClickState {
@@ -29,6 +39,12 @@ impl InputHandlerImpl {
             modifier_state: Mutex::new(ModifierKeys::default()),
             button_state: Mutex::new(None),
             last_click: Mutex::new(None),
+            drag_state: Mutex::new(DragState {
+                pending_x: 0.0,
+                pending_y: 0.0,
+                last_flush: Instant::now(),
+                button: None,
+            }),
         })
     }
 
@@ -55,11 +71,11 @@ impl InputHandlerTrait for InputHandlerImpl {
             .current_pos
             .lock()
             .expect("Cursor position mutex poisoned");
-        let button_held = self
+        let button = self
             .button_state
             .lock()
             .expect("Button state mutex poisoned")
-            .is_some();
+            .clone();
 
         let (new_x, new_y) = if let Some((px, py)) = *pos_opt {
             (px + x, py + y)
@@ -72,12 +88,8 @@ impl InputHandlerTrait for InputHandlerImpl {
 
         *pos_opt = Some((new_x, new_y));
 
-        if button_held {
-            let button = *self
-                .button_state
-                .lock()
-                .expect("Button state mutex poisoned");
-            Self::send_mouse_drag(new_x, new_y, button)?;
+        if button.is_some() {
+            self.queue_drag_event(x, y, new_x, new_y, button).await?;
         } else {
             send_event(EventType::MouseMove { x: new_x, y: new_y })?;
         }
@@ -117,6 +129,16 @@ impl InputHandlerTrait for InputHandlerImpl {
             .button_state
             .lock()
             .expect("Button state mutex poisoned") = Some(button_enum);
+
+        let mut drag = self
+            .drag_state
+            .lock()
+            .expect("Drag state mutex poisoned");
+        drag.pending_x = 0.0;
+        drag.pending_y = 0.0;
+        drag.last_flush = Instant::now();
+        drag.button = Some(button_enum);
+
         send_event(EventType::ButtonPress(button_enum))?;
         Ok(())
     }
@@ -124,10 +146,21 @@ impl InputHandlerTrait for InputHandlerImpl {
     async fn mouse_up(&self, button: u8) -> Result<()> {
         let button_enum = Self::map_button(button);
 
+        self.flush_pending_drag()?;
+
         *self
             .button_state
             .lock()
             .expect("Button state mutex poisoned") = None;
+
+        let mut drag = self
+            .drag_state
+            .lock()
+            .expect("Drag state mutex poisoned");
+        drag.pending_x = 0.0;
+        drag.pending_y = 0.0;
+        drag.button = None;
+
         send_event(EventType::ButtonRelease(button_enum))?;
         Ok(())
     }
@@ -416,6 +449,76 @@ impl InputHandlerImpl {
         }
 
         Ok(())
+    }
+
+    async fn queue_drag_event(
+        &self,
+        delta_x: f64,
+        delta_y: f64,
+        target_x: f64,
+        target_y: f64,
+        button: Option<Button>,
+    ) -> Result<()> {
+        let mut drag = self
+            .drag_state
+            .lock()
+            .expect("Drag state mutex poisoned");
+
+        drag.pending_x += delta_x;
+        drag.pending_y += delta_y;
+
+        let should_flush = drag.last_flush.elapsed() >= Duration::from_millis(DRAG_BATCH_INTERVAL_MS);
+
+        if should_flush {
+            Self::send_mouse_drag(target_x, target_y, button)?;
+            drag.pending_x = 0.0;
+            drag.pending_y = 0.0;
+            drag.last_flush = Instant::now();
+        }
+
+        Ok(())
+    }
+
+    fn flush_pending_drag(&self) -> Result<()> {
+        let mut drag = self
+            .drag_state
+            .lock()
+            .expect("Drag state mutex poisoned");
+
+        if drag.pending_x != 0.0 || drag.pending_y != 0.0 {
+            let pos = self.resolve_pointer_position();
+            Self::send_mouse_drag(pos.0, pos.1, drag.button)?;
+            drag.pending_x = 0.0;
+            drag.pending_y = 0.0;
+        }
+
+        Ok(())
+    }
+}
+
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_drag_batching_accumulates_movement() {
+        let handler = InputHandlerImpl::new().unwrap();
+
+        let mut drag = handler.drag_state.lock().unwrap();
+        drag.pending_x = 0.0;
+        drag.pending_y = 0.0;
+
+        assert_eq!(drag.pending_x, 0.0);
+        assert_eq!(drag.pending_y, 0.0);
+    }
+
+    #[test]
+    fn test_drag_state_initialized() {
+        let handler = InputHandlerImpl::new().unwrap();
+        let drag = handler.drag_state.lock().unwrap();
+
+        assert_eq!(drag.pending_x, 0.0);
+        assert_eq!(drag.pending_y, 0.0);
+        assert!(drag.button.is_none());
     }
 }
 
