@@ -1,6 +1,6 @@
 [package]
 name = "pointzerver"
-version = "0.3.1"
+version = "0.3.2"
 edition = "2021"
 description = "PointZ Server - Control your PC cursor from your mobile device"
 license = "MIT"
