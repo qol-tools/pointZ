@@ -2,7 +2,18 @@
 
 echo "=== Auto-Detecting Phone ==="
 
-PHONE_IP=$(timeout 2 avahi-browse -t -r _adb._tcp 2>/dev/null | grep "address" | grep -oP '\d+\.\d+\.\d+\.\d+' | head -n1)
+if command -v timeout &> /dev/null; then
+    TIMEOUT_CMD="timeout 2"
+else
+    TIMEOUT_CMD=""
+fi
+
+if command -v avahi-browse &> /dev/null; then
+    PHONE_IP=$($TIMEOUT_CMD avahi-browse -t -r _adb._tcp 2>/dev/null | grep "address" | sed -E 's/.*([0-9]+\.[0-9]+\.[0-9]+\.[0-9]+).*/\1/' | head -n1)
+else
+    # Extract IP directly from adb mdns services output (format: "name\t_adb._tcp\tIP:PORT")
+    PHONE_IP=$(adb mdns services 2>/dev/null | awk 'NR>1 && /_adb\._tcp/ {split($3,a,":"); print a[1]; exit}')
+fi
 
 if [ -z "$PHONE_IP" ]; then
     echo "❌ Phone not found on network."
@@ -46,13 +57,22 @@ echo ""
 echo "Waiting 30 seconds for pairing broadcast..."
 
 for i in {1..30}; do
-    PAIR_INFO=$(timeout 1 avahi-browse -t -r _adb-tls-pairing._tcp 2>/dev/null | grep -A 3 "address\|port")
-    
-    if [ -n "$PAIR_INFO" ]; then
-        PAIR_IP=$(echo "$PAIR_INFO" | grep "address" | head -n1 | grep -oP '\d+\.\d+\.\d+\.\d+')
-        PAIR_PORT=$(echo "$PAIR_INFO" | grep "port" | head -n1 | grep -oP '\d+')
-        
-        if [ -n "$PAIR_IP" ] && [ -n "$PAIR_PORT" ]; then
+    if command -v avahi-browse &> /dev/null; then
+        PAIR_INFO=$($TIMEOUT_CMD avahi-browse -t -r _adb-tls-pairing._tcp 2>/dev/null | grep -A 3 "address\|port")
+        if [ -n "$PAIR_INFO" ]; then
+            PAIR_IP=$(echo "$PAIR_INFO" | grep "address" | head -n1 | sed -E 's/.*([0-9]+\.[0-9]+\.[0-9]+\.[0-9]+).*/\1/')
+            PAIR_PORT=$(echo "$PAIR_INFO" | grep "port" | head -n1 | sed -E 's/.*port = \[([0-9]+)\].*/\1/')
+        fi
+    else
+        # Extract IP:PORT directly from adb mdns services output
+        PAIR_ADDR=$(adb mdns services 2>/dev/null | awk '/_adb-tls-pairing\._tcp/ {print $3; exit}')
+        if [ -n "$PAIR_ADDR" ]; then
+            PAIR_IP=$(echo "$PAIR_ADDR" | cut -d: -f1)
+            PAIR_PORT=$(echo "$PAIR_ADDR" | cut -d: -f2)
+        fi
+    fi
+
+    if [ -n "${PAIR_IP:-}" ] && [ -n "${PAIR_PORT:-}" ]; then
             echo ""
             echo "✓ Detected pairing dialog at $PAIR_IP:$PAIR_PORT"
             read -p "Enter the 6-digit code from phone: " PAIR_CODE
