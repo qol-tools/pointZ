@@ -1,8 +1,8 @@
 [package]
 name = "pointzerver"
-version = "0.3.3"
+version = "0.3.4"
 edition = "2021"
-description = "PointZ Server - Control your PC cursor from your mobile device"
+description = "PointZerver - Control your PC cursor from your mobile device"
 license = "MIT"
 
 [dependencies]
@@ -44,7 +44,7 @@ dispatch = "0.2"
 maintainer = "KMRH47"
 copyright = "2025, KMRH47"
 extended-description = """\
-PointZ Server - Control your PC cursor from your mobile device.
+PointZerver - Control your PC cursor from your mobile device.
 Runs in the system tray with auto-discovery support."""
 depends = "$auto, libgtk-3-0, libayatana-appindicator3-1, libx11-6, libxdo3"
 section = "utils"
