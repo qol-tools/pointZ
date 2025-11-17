@@ -1,10 +1,10 @@
-use anyhow::Result;
-use crate::input::InputHandlerTrait;
 use crate::domain::config::ServerConfig;
 use crate::domain::models::ModifierKeys;
-use rdev::{simulate, Button, Key, EventType, SimulateError};
-use std::time::Duration;
+use crate::input::InputHandlerTrait;
+use anyhow::Result;
+use rdev::{simulate, Button, EventType, Key, SimulateError};
 use std::sync::Mutex;
+use std::time::{Duration, Instant};
 
 #[link(name = "CoreGraphics", kind = "framework")]
 extern "C" {}
@@ -13,6 +13,13 @@ pub struct InputHandlerImpl {
     current_pos: Mutex<Option<(f64, f64)>>,
     modifier_state: Mutex<ModifierKeys>,
     button_state: Mutex<Option<Button>>,
+    last_click: Mutex<Option<ClickState>>,
+}
+
+struct ClickState {
+    button: u8,
+    time: Instant,
+    count: u8,
 }
 
 impl InputHandlerImpl {
@@ -21,6 +28,7 @@ impl InputHandlerImpl {
             current_pos: Mutex::new(None),
             modifier_state: Mutex::new(ModifierKeys::default()),
             button_state: Mutex::new(None),
+            last_click: Mutex::new(None),
         })
     }
 
@@ -43,80 +51,87 @@ fn send_event(event_type: EventType) -> Result<()> {
 #[async_trait::async_trait]
 impl InputHandlerTrait for InputHandlerImpl {
     async fn mouse_move(&self, x: f64, y: f64) -> Result<()> {
-        let mut pos_opt = self.current_pos.lock()
+        let mut pos_opt = self
+            .current_pos
+            .lock()
             .expect("Cursor position mutex poisoned");
-        let button_held = self.button_state.lock()
+        let button_held = self
+            .button_state
+            .lock()
             .expect("Button state mutex poisoned")
             .is_some();
-        
+
         let (new_x, new_y) = if let Some((px, py)) = *pos_opt {
             (px + x, py + y)
         } else {
-            (ServerConfig::FALLBACK_SCREEN_WIDTH / 2.0 + x, 
-             ServerConfig::FALLBACK_SCREEN_HEIGHT / 2.0 + y)
+            (
+                ServerConfig::FALLBACK_SCREEN_WIDTH / 2.0 + x,
+                ServerConfig::FALLBACK_SCREEN_HEIGHT / 2.0 + y,
+            )
         };
-        
+
         *pos_opt = Some((new_x, new_y));
-        
+
         if button_held {
-            let button = *self.button_state.lock()
+            let button = *self
+                .button_state
+                .lock()
                 .expect("Button state mutex poisoned");
             Self::send_mouse_drag(new_x, new_y, button)?;
         } else {
-            send_event(EventType::MouseMove {
-                x: new_x,
-                y: new_y,
-            })?;
+            send_event(EventType::MouseMove { x: new_x, y: new_y })?;
         }
         Ok(())
     }
-    
+
     async fn mouse_click(&self, button: u8) -> Result<()> {
-        let button_enum = match button {
-            1 => Button::Left,
-            2 => Button::Right,
-            3 => Button::Middle,
-            _ => Button::Left,
-        };
-        
-        *self.button_state.lock()
-            .expect("Button state mutex poisoned") = Some(button_enum);
-        send_event(EventType::ButtonPress(button_enum))?;
+        let button_enum = Self::map_button(button);
+        let click_state = self.next_click_count(button);
+        let position = self.resolve_pointer_position();
+
+        {
+            let mut state = self
+                .button_state
+                .lock()
+                .expect("Button state mutex poisoned");
+            *state = Some(button_enum);
+        }
+
+        Self::send_mouse_button_event(position, button_enum, true, click_state)?;
         tokio::time::sleep(Duration::from_millis(ServerConfig::MOUSE_CLICK_DELAY_MS)).await;
-        *self.button_state.lock()
-            .expect("Button state mutex poisoned") = None;
-        send_event(EventType::ButtonRelease(button_enum))?;
+        {
+            let mut state = self
+                .button_state
+                .lock()
+                .expect("Button state mutex poisoned");
+            *state = None;
+        }
+        Self::send_mouse_button_event(position, button_enum, false, click_state)?;
         Ok(())
     }
-    
+
     async fn mouse_down(&self, button: u8) -> Result<()> {
-        let button_enum = match button {
-            1 => Button::Left,
-            2 => Button::Right,
-            3 => Button::Middle,
-            _ => Button::Left,
-        };
-        
-        *self.button_state.lock()
+        let button_enum = Self::map_button(button);
+
+        *self
+            .button_state
+            .lock()
             .expect("Button state mutex poisoned") = Some(button_enum);
         send_event(EventType::ButtonPress(button_enum))?;
         Ok(())
     }
-    
+
     async fn mouse_up(&self, button: u8) -> Result<()> {
-        let button_enum = match button {
-            1 => Button::Left,
-            2 => Button::Right,
-            3 => Button::Middle,
-            _ => Button::Left,
-        };
-        
-        *self.button_state.lock()
+        let button_enum = Self::map_button(button);
+
+        *self
+            .button_state
+            .lock()
             .expect("Button state mutex poisoned") = None;
         send_event(EventType::ButtonRelease(button_enum))?;
         Ok(())
     }
-    
+
     async fn mouse_scroll(&self, delta_x: f64, delta_y: f64) -> Result<()> {
         if delta_y != 0.0 {
             send_event(EventType::Wheel {
@@ -132,25 +147,27 @@ impl InputHandlerTrait for InputHandlerImpl {
         }
         Ok(())
     }
-    
+
     async fn key_press(&self, key: &str, modifiers: &ModifierKeys) -> Result<()> {
         Self::apply_modifiers(&self.modifier_state, modifiers)?;
-        
+
         if let Some(key_enum) = string_to_key(key) {
             send_event(EventType::KeyPress(key_enum))?;
         }
         Ok(())
     }
-    
+
     async fn key_release(&self, key: &str, _modifiers: &ModifierKeys) -> Result<()> {
         if let Some(key_enum) = string_to_key(key) {
             send_event(EventType::KeyRelease(key_enum))?;
         }
         Ok(())
     }
-    
+
     async fn modifier_press(&self, modifier: &str) -> Result<()> {
-        let mut state = self.modifier_state.lock()
+        let mut state = self
+            .modifier_state
+            .lock()
             .expect("Modifier state mutex poisoned");
         match modifier.to_lowercase().as_str() {
             "ctrl" | "control" => {
@@ -173,9 +190,11 @@ impl InputHandlerTrait for InputHandlerImpl {
         }
         Ok(())
     }
-    
+
     async fn modifier_release(&self, modifier: &str) -> Result<()> {
-        let mut state = self.modifier_state.lock()
+        let mut state = self
+            .modifier_state
+            .lock()
             .expect("Modifier state mutex poisoned");
         match modifier.to_lowercase().as_str() {
             "ctrl" | "control" => {
@@ -201,21 +220,80 @@ impl InputHandlerTrait for InputHandlerImpl {
 }
 
 impl InputHandlerImpl {
-    fn send_mouse_drag(x: f64, y: f64, button: Option<Button>) -> Result<()> {
+    fn map_button(button: u8) -> Button {
+        match button {
+            1 => Button::Left,
+            2 => Button::Right,
+            3 => Button::Middle,
+            _ => Button::Left,
+        }
+    }
+
+    fn resolve_pointer_position(&self) -> (f64, f64) {
+        let mut pos = self
+            .current_pos
+            .lock()
+            .expect("Cursor position mutex poisoned");
+        if let Some(coords) = *pos {
+            coords
+        } else {
+            let fallback = (
+                ServerConfig::FALLBACK_SCREEN_WIDTH / 2.0,
+                ServerConfig::FALLBACK_SCREEN_HEIGHT / 2.0,
+            );
+            *pos = Some(fallback);
+            fallback
+        }
+    }
+
+    fn next_click_count(&self, button: u8) -> i64 {
+        let mut last_click = self.last_click.lock().expect("Last click mutex poisoned");
+        let now = Instant::now();
+        let timeout = Duration::from_millis(ServerConfig::DOUBLE_CLICK_TIMEOUT_MS);
+
+        let count = if let Some(previous) = &*last_click {
+            if previous.button == button
+                && now.duration_since(previous.time) <= timeout
+                && previous.count == 1
+            {
+                2
+            } else {
+                1
+            }
+        } else {
+            1
+        };
+
+        *last_click = Some(ClickState {
+            button,
+            time: now,
+            count,
+        });
+
+        count as i64
+    }
+
+    fn send_mouse_button_event(
+        position: (f64, f64),
+        button: Button,
+        is_press: bool,
+        click_state: i64,
+    ) -> Result<()> {
         unsafe {
             #[repr(C)]
             struct CGPoint {
                 x: f64,
                 y: f64,
             }
-            
-            let event_type = match button {
-                Some(Button::Left) => 6u32,
-                Some(Button::Right) => 7u32,
-                Some(Button::Middle) => 8u32,
-                _ => 6u32,
-            };
-            
+
+            const LEFT_DOWN: u32 = 1;
+            const LEFT_UP: u32 = 2;
+            const RIGHT_DOWN: u32 = 3;
+            const RIGHT_UP: u32 = 4;
+            const OTHER_DOWN: u32 = 25;
+            const OTHER_UP: u32 = 26;
+            const KCG_MOUSE_EVENT_CLICK_STATE: u32 = 1;
+
             extern "C" {
                 fn CGEventCreateMouseEvent(
                     source: *const std::ffi::c_void,
@@ -223,36 +301,86 @@ impl InputHandlerImpl {
                     mouseCursorPosition: CGPoint,
                     mouseButton: u32,
                 ) -> *const std::ffi::c_void;
-                fn CGEventPost(
-                    tap: u32,
+                fn CGEventSetIntegerValueField(
                     event: *const std::ffi::c_void,
-                ) -> i32;
+                    field: u32,
+                    value: i64,
+                );
+                fn CGEventPost(tap: u32, event: *const std::ffi::c_void) -> i32;
                 fn CFRelease(ptr: *const std::ffi::c_void);
             }
-            
-            let point = CGPoint { x, y };
-            let event = CGEventCreateMouseEvent(
-                std::ptr::null(),
-                event_type,
-                point,
-                0,
-            );
-            
+
+            let (event_type, button_index) = match (button, is_press) {
+                (Button::Left, true) => (LEFT_DOWN, 0u32),
+                (Button::Left, false) => (LEFT_UP, 0u32),
+                (Button::Right, true) => (RIGHT_DOWN, 1u32),
+                (Button::Right, false) => (RIGHT_UP, 1u32),
+                (Button::Middle, true) => (OTHER_DOWN, 2u32),
+                (Button::Middle, false) => (OTHER_UP, 2u32),
+                _ => (LEFT_DOWN, 0u32),
+            };
+
+            let point = CGPoint {
+                x: position.0,
+                y: position.1,
+            };
+            let event = CGEventCreateMouseEvent(std::ptr::null(), event_type, point, button_index);
+
             if event.is_null() {
-                return Err(anyhow::anyhow!("Failed to create mouse drag event"));
+                return Err(anyhow::anyhow!("Failed to create mouse button event"));
             }
-            
+
+            CGEventSetIntegerValueField(event, KCG_MOUSE_EVENT_CLICK_STATE, click_state);
             CGEventPost(0, event);
             CFRelease(event);
         }
-        
+
         Ok(())
     }
-    
+
+    fn send_mouse_drag(x: f64, y: f64, button: Option<Button>) -> Result<()> {
+        unsafe {
+            #[repr(C)]
+            struct CGPoint {
+                x: f64,
+                y: f64,
+            }
+
+            let event_type = match button {
+                Some(Button::Left) => 6u32,
+                Some(Button::Right) => 7u32,
+                Some(Button::Middle) => 8u32,
+                _ => 6u32,
+            };
+
+            extern "C" {
+                fn CGEventCreateMouseEvent(
+                    source: *const std::ffi::c_void,
+                    mouseType: u32,
+                    mouseCursorPosition: CGPoint,
+                    mouseButton: u32,
+                ) -> *const std::ffi::c_void;
+                fn CGEventPost(tap: u32, event: *const std::ffi::c_void) -> i32;
+                fn CFRelease(ptr: *const std::ffi::c_void);
+            }
+
+            let point = CGPoint { x, y };
+            let event = CGEventCreateMouseEvent(std::ptr::null(), event_type, point, 0);
+
+            if event.is_null() {
+                return Err(anyhow::anyhow!("Failed to create mouse drag event"));
+            }
+
+            CGEventPost(0, event);
+            CFRelease(event);
+        }
+
+        Ok(())
+    }
+
     fn apply_modifiers(state: &Mutex<ModifierKeys>, modifiers: &ModifierKeys) -> Result<()> {
-        let mut state_guard = state.lock()
-            .expect("Modifier state mutex poisoned");
-        
+        let mut state_guard = state.lock().expect("Modifier state mutex poisoned");
+
         if modifiers.ctrl && !state_guard.ctrl {
             send_event(EventType::KeyPress(Key::ControlLeft))?;
             state_guard.ctrl = true;
@@ -269,7 +397,7 @@ impl InputHandlerImpl {
             send_event(EventType::KeyPress(Key::MetaLeft))?;
             state_guard.meta = true;
         }
-        
+
         if !modifiers.ctrl && state_guard.ctrl {
             send_event(EventType::KeyRelease(Key::ControlLeft))?;
             state_guard.ctrl = false;
@@ -286,7 +414,7 @@ impl InputHandlerImpl {
             send_event(EventType::KeyRelease(Key::MetaLeft))?;
             state_guard.meta = false;
         }
-        
+
         Ok(())
     }
 }
@@ -373,4 +501,3 @@ fn string_to_key(s: &str) -> Option<Key> {
         _ => None,
     }
 }
-
