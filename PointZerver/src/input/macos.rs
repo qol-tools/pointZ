@@ -67,26 +67,29 @@ fn send_event(event_type: EventType) -> Result<()> {
 #[async_trait::async_trait]
 impl InputHandlerTrait for InputHandlerImpl {
     async fn mouse_move(&self, x: f64, y: f64) -> Result<()> {
-        let mut pos_opt = self
-            .current_pos
-            .lock()
-            .expect("Cursor position mutex poisoned");
-        let button = self
-            .button_state
-            .lock()
-            .expect("Button state mutex poisoned")
-            .clone();
+        let (new_x, new_y, button) = {
+            let mut pos_opt = self
+                .current_pos
+                .lock()
+                .expect("Cursor position mutex poisoned");
+            let button = self
+                .button_state
+                .lock()
+                .expect("Button state mutex poisoned")
+                .clone();
 
-        let (new_x, new_y) = if let Some((px, py)) = *pos_opt {
-            (px + x, py + y)
-        } else {
-            (
-                ServerConfig::FALLBACK_SCREEN_WIDTH / 2.0 + x,
-                ServerConfig::FALLBACK_SCREEN_HEIGHT / 2.0 + y,
-            )
+            let (new_x, new_y) = if let Some((px, py)) = *pos_opt {
+                (px + x, py + y)
+            } else {
+                (
+                    ServerConfig::FALLBACK_SCREEN_WIDTH / 2.0 + x,
+                    ServerConfig::FALLBACK_SCREEN_HEIGHT / 2.0 + y,
+                )
+            };
+
+            *pos_opt = Some((new_x, new_y));
+            (new_x, new_y, button)
         };
-
-        *pos_opt = Some((new_x, new_y));
 
         if button.is_some() {
             self.queue_drag_event(x, y, new_x, new_y, button).await?;
@@ -497,8 +500,6 @@ impl InputHandlerImpl {
 }
 
 mod tests {
-    use super::*;
-
     #[test]
     fn test_drag_batching_accumulates_movement() {
         let handler = InputHandlerImpl::new().unwrap();
