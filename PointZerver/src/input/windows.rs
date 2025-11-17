@@ -4,6 +4,7 @@ use crate::domain::models::ModifierKeys;
 use crate::domain::config::ServerConfig;
 use std::sync::Mutex;
 use std::time::Duration;
+use windows::Win32::UI::WindowsAndMessaging::{GetCursorPos, SetCursorPos};
 use windows::{
     Win32::Foundation::POINT,
     Win32::UI::Input::KeyboardAndMouse::*,
@@ -127,7 +128,7 @@ impl InputHandlerTrait for InputHandlerImpl {
                         mi: MOUSEINPUT {
                             dx: 0,
                             dy: 0,
-                            mouseData: (delta_y * 120.0) as i32,
+                            mouseData: (delta_y * 120.0) as i32 as u32,
                             dwFlags: MOUSEEVENTF_WHEEL,
                             time: 0,
                             dwExtraInfo: 0,
@@ -143,7 +144,7 @@ impl InputHandlerTrait for InputHandlerImpl {
                         mi: MOUSEINPUT {
                             dx: 0,
                             dy: 0,
-                            mouseData: (delta_x * 120.0) as i32,
+                            mouseData: (delta_x * 120.0) as i32 as u32,
                             dwFlags: MOUSEEVENTF_HWHEEL,
                             time: 0,
                             dwExtraInfo: 0,
@@ -165,9 +166,9 @@ impl InputHandlerTrait for InputHandlerImpl {
                     r#type: INPUT_KEYBOARD,
                     Anonymous: windows::Win32::UI::Input::KeyboardAndMouse::INPUT_0 {
                         ki: KEYBDINPUT {
-                            wVk: vk_code,
+                            wVk: VIRTUAL_KEY(vk_code),
                             wScan: 0,
-                            dwFlags: 0u32,
+                            dwFlags: KEYBD_EVENT_FLAGS(0u32),
                             time: 0,
                             dwExtraInfo: 0,
                         },
@@ -186,7 +187,7 @@ impl InputHandlerTrait for InputHandlerImpl {
                     r#type: INPUT_KEYBOARD,
                     Anonymous: windows::Win32::UI::Input::KeyboardAndMouse::INPUT_0 {
                         ki: KEYBDINPUT {
-                            wVk: vk_code,
+                            wVk: VIRTUAL_KEY(vk_code),
                             wScan: 0,
                             dwFlags: KEYEVENTF_KEYUP,
                             time: 0,
@@ -213,7 +214,7 @@ impl InputHandlerTrait for InputHandlerImpl {
                             ki: KEYBDINPUT {
                                 wVk: VK_CONTROL,
                                 wScan: 0,
-                                dwFlags: 0u32,
+                                dwFlags: KEYBD_EVENT_FLAGS(0u32),
                                 time: 0,
                                 dwExtraInfo: 0,
                             },
@@ -231,7 +232,7 @@ impl InputHandlerTrait for InputHandlerImpl {
                             ki: KEYBDINPUT {
                                 wVk: VK_MENU,
                                 wScan: 0,
-                                dwFlags: 0u32,
+                                dwFlags: KEYBD_EVENT_FLAGS(0u32),
                                 time: 0,
                                 dwExtraInfo: 0,
                             },
@@ -249,7 +250,7 @@ impl InputHandlerTrait for InputHandlerImpl {
                             ki: KEYBDINPUT {
                                 wVk: VK_SHIFT,
                                 wScan: 0,
-                                dwFlags: 0u32,
+                                dwFlags: KEYBD_EVENT_FLAGS(0u32),
                                 time: 0,
                                 dwExtraInfo: 0,
                             },
@@ -267,7 +268,7 @@ impl InputHandlerTrait for InputHandlerImpl {
                             ki: KEYBDINPUT {
                                 wVk: VK_LWIN,
                                 wScan: 0,
-                                dwFlags: 0u32,
+                                dwFlags: KEYBD_EVENT_FLAGS(0u32),
                                 time: 0,
                                 dwExtraInfo: 0,
                             },
@@ -376,7 +377,7 @@ impl InputHandlerImpl {
                         ki: KEYBDINPUT {
                             wVk: VK_CONTROL,
                             wScan: 0,
-                            dwFlags: 0u32,
+                            dwFlags: KEYBD_EVENT_FLAGS(0u32),
                             time: 0,
                             dwExtraInfo: 0,
                         },
@@ -394,7 +395,7 @@ impl InputHandlerImpl {
                         ki: KEYBDINPUT {
                             wVk: VK_MENU,
                             wScan: 0,
-                            dwFlags: 0u32,
+                            dwFlags: KEYBD_EVENT_FLAGS(0u32),
                             time: 0,
                             dwExtraInfo: 0,
                         },
@@ -412,7 +413,7 @@ impl InputHandlerImpl {
                         ki: KEYBDINPUT {
                             wVk: VK_SHIFT,
                             wScan: 0,
-                            dwFlags: 0u32,
+                            dwFlags: KEYBD_EVENT_FLAGS(0u32),
                             time: 0,
                             dwExtraInfo: 0,
                         },
@@ -430,7 +431,7 @@ impl InputHandlerImpl {
                         ki: KEYBDINPUT {
                             wVk: VK_LWIN,
                             wScan: 0,
-                            dwFlags: 0u32,
+                            dwFlags: KEYBD_EVENT_FLAGS(0u32),
                             time: 0,
                             dwExtraInfo: 0,
                         },
