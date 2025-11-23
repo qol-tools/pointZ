@@ -12,7 +12,7 @@ adb_autoconnect() {
     local phone_ip=""
     
     if command -v avahi-browse &> /dev/null; then
-        phone_ip=$(timeout 2 avahi-browse -t -p _adb._tcp 2>/dev/null | grep "^=" | grep IPv4 | head -n1 | cut -d';' -f8)
+        phone_ip=$(timeout 2 avahi-browse -t -p _adb-tls-connect._tcp 2>/dev/null | grep "^=" | grep IPv4 | head -n1 | cut -d';' -f8)
         
         if [ -z "$phone_ip" ]; then
             phone_ip=$(adb mdns services 2>/dev/null | grep -oP '\d+\.\d+\.\d+\.\d+' | head -n1)

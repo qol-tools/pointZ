@@ -9,10 +9,10 @@ else
 fi
 
 if command -v avahi-browse &> /dev/null; then
-    PHONE_IP=$($TIMEOUT_CMD avahi-browse -t -r _adb._tcp 2>/dev/null | grep "address" | sed -E 's/.*([0-9]+\.[0-9]+\.[0-9]+\.[0-9]+).*/\1/' | head -n1)
+    PHONE_IP=$($TIMEOUT_CMD avahi-browse -t -r _adb-tls-connect._tcp 2>/dev/null | grep "address" | sed -E 's/.*([0-9]+\.[0-9]+\.[0-9]+\.[0-9]+).*/\1/' | head -n1)
 else
     # Extract IP directly from adb mdns services output (format: "name\t_adb._tcp\tIP:PORT")
-    PHONE_IP=$(adb mdns services 2>/dev/null | awk 'NR>1 && /_adb\._tcp/ {split($3,a,":"); print a[1]; exit}')
+    PHONE_IP=$(adb mdns services 2>/dev/null | awk 'NR>1 && /_adb/ {split($3,a,":"); print a[1]; exit}')
 fi
 
 if [ -z "$PHONE_IP" ]; then
@@ -92,8 +92,7 @@ for i in {1..30}; do
                 fi
             fi
         fi
-    fi
-    
+
     printf "."
     sleep 1
 done
