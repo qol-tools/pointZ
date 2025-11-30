@@ -1,6 +1,7 @@
 use anyhow::Result;
 use axum::{routing::get, Json, Router};
 use serde::Serialize;
+use tower_http::cors::{Any, CorsLayer};
 
 use crate::domain::config::ServerConfig;
 use crate::utils;
@@ -17,9 +18,14 @@ pub struct ServerStatus {
 }
 
 pub async fn run() -> Result<()> {
+    let cors = CorsLayer::new()
+        .allow_origin(Any)
+        .allow_methods(Any);
+
     let app = Router::new()
         .route("/status", get(get_status))
-        .route("/health", get(health_check));
+        .route("/health", get(health_check))
+        .layer(cors);
 
     let addr = format!("127.0.0.1:{}", STATUS_PORT);
     let listener = tokio::net::TcpListener::bind(&addr).await?;
