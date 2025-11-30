@@ -15,38 +15,6 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  build-apk:
-    name: Build - Android APK
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Set up Flutter
-        uses: subosito/flutter-action@v2
-        with:
-          flutter-version: '3.24.0'
-          channel: 'stable'
-
-      - name: Install dependencies
-        working-directory: PointZ
-        run: flutter pub get
-
-      - name: Build APK
-        working-directory: PointZ
-        run: flutter build apk --release
-
-      - name: Rename APK
-        run: |
-          cp PointZ/build/app/outputs/flutter-apk/app-release.apk pointz-app.apk
-
-      - name: Upload APK artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: pointz-app.apk
-          path: pointz-app.apk
-          retention-days: 90
-
   build:
     name: Build - ${{ matrix.name_suffix }}
     runs-on: ${{ matrix.os }}
@@ -83,7 +51,7 @@ jobs:
         if: matrix.os == 'ubuntu-latest'
         uses: awalsh128/cache-apt-pkgs-action@latest
         with:
-          packages: pkg-config libgtk-3-dev libgdk-pixbuf2.0-dev libatk1.0-dev libpango1.0-dev libcairo2-dev libglib2.0-dev libwebkit2gtk-4.1-dev libayatana-appindicator3-dev libx11-dev libxcb1-dev libxkbcommon-dev libxkbcommon-x11-dev libxdo-dev
+          packages: pkg-config libx11-dev libxcb1-dev libxkbcommon-dev libxkbcommon-x11-dev libxdo-dev
           version: 1.0
 
       - name: Cache Rust dependencies
@@ -143,7 +111,7 @@ jobs:
 
   release:
     name: Create Release
-    needs: [build, build-apk]
+    needs: [build]
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -161,7 +129,6 @@ jobs:
         shell: bash
         run: |
           mkdir -p release_files
-          # Copy artifacts from their subdirectories to release_files
           for artifact_dir in artifacts/*/; do
             if [ -d "$artifact_dir" ]; then
               cp "$artifact_dir"* release_files/ 2>/dev/null || true
@@ -186,51 +153,41 @@ jobs:
         uses: softprops/action-gh-release@v1
         with:
           tag_name: ${{ steps.version.outputs.version }}
-          name: PointZ Server ${{ steps.version.outputs.version }}
+          name: PointZerver ${{ steps.version.outputs.version }}
           body: |
-            ## PointZ ${{ steps.version.outputs.version }}
+            ## PointZerver ${{ steps.version.outputs.version }}
 
-            ### Mobile App (Android)
+            Headless server for remote PC control. Designed as a qol-tray plugin.
 
-            - **Android APK**: `pointz-app.apk`
-
-            ### Server Downloads
-
-            Download the server binary for your operating system:
+            ### Downloads
 
             - **Linux (x86_64)**:
-              - `.deb` package (recommended): `pointzerver-linux-x86_64.deb`
-              - Raw binary: `pointzerver-linux-x86_64`
+              - `.deb` package: `pointzerver-linux-x86_64.deb`
+              - Binary: `pointzerver-linux-x86_64`
             - **Windows (x86_64)**: `pointzerver-windows-x86_64.exe`
             - **macOS (Intel)**: `pointzerver-macos-x86_64`
             - **macOS (Apple Silicon)**: `pointzerver-macos-aarch64`
 
             ### Installation
 
-            **Android:**
-            1. Download `pointz-app.apk`
-            2. Install the APK (enable "Install from unknown sources" if needed)
-
-            **Linux (Debian/Ubuntu/Mint):**
+            **As qol-tray plugin (recommended):**
             ```bash
-            sudo dpkg -i pointzerver-linux-x86_64.deb
-            # Or double-click the .deb file
-            # Then run: pointzerver
+            git clone https://github.com/qol-tools/plugin-pointz ~/.config/qol-tray/plugins/plugin-pointz
             ```
 
-            **Other platforms:**
-            1. Download the binary for your OS
-            2. Run it (it will appear in your system tray)
-            3. Right-click the tray icon → "Show QR Code"
-            4. Scan QR code to download the mobile app
-            5. App will auto-discover and connect
+            **Standalone (Linux):**
+            ```bash
+            sudo dpkg -i pointzerver-linux-x86_64.deb
+            pointzerver
+            ```
 
-            ### Notes
+            ### Ports
 
-            - Server runs in background (system tray)
-            - No console window needed
-            - Right-click tray icon for options
+            | Port  | Protocol | Purpose         |
+            |-------|----------|-----------------|
+            | 45454 | UDP      | Discovery       |
+            | 45455 | TCP      | Command/Control |
+            | 45460 | HTTP     | Status API      |
           files: release_files/*
           draft: false
           prerelease: false
-

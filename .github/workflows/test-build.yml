@@ -6,23 +6,13 @@ on:
       - main
     paths:
       - 'PointZerver/**'
-      - 'PointZ/**'
       - '.github/workflows/test-build.yml'
-      - 'Cargo.toml'
-      - 'Cargo.lock'
-      - 'PointZ/pubspec.yaml'
-      - 'PointZ/pubspec.lock'
   pull_request:
     branches:
       - main
     paths:
       - 'PointZerver/**'
-      - 'PointZ/**'
       - '.github/workflows/test-build.yml'
-      - 'Cargo.toml'
-      - 'Cargo.lock'
-      - 'PointZ/pubspec.yaml'
-      - 'PointZ/pubspec.lock'
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -42,7 +32,7 @@ jobs:
       - name: Cache apt packages
         uses: awalsh128/cache-apt-pkgs-action@latest
         with:
-          packages: pkg-config libgtk-3-dev libgdk-pixbuf2.0-dev libatk1.0-dev libpango1.0-dev libcairo2-dev libglib2.0-dev libwebkit2gtk-4.1-dev libayatana-appindicator3-dev libx11-dev libxcb1-dev libxkbcommon-dev libxkbcommon-x11-dev libxdo-dev
+          packages: pkg-config libx11-dev libxcb1-dev libxkbcommon-dev libxkbcommon-x11-dev libxdo-dev
           version: 1.0
 
       - name: Cache Rust dependencies
@@ -59,28 +49,3 @@ jobs:
       - name: Run tests
         working-directory: PointZerver
         run: cargo test --workspace --no-fail-fast
-
-  flutter-test:
-    name: Flutter Test
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Setup Flutter
-        uses: subosito/flutter-action@v2
-        with:
-          flutter-version: '3.24.0'
-          cache: true
-
-      - name: Get dependencies
-        working-directory: PointZ
-        run: flutter pub get
-
-      - name: Analyze
-        working-directory: PointZ
-        run: flutter analyze
-
-      - name: Run tests
-        working-directory: PointZ
-        run: flutter test
