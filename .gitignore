@@ -1,0 +1,24 @@
+# Flutter/Dart
+PointZ/build/
+PointZ/.dart_tool/
+PointZ/.flutter-plugins
+PointZ/.flutter-plugins-dependencies
+
+# Android
+PointZ/android/.gradle/
+PointZ/android/local.properties
+PointZ/android/*.iml
+PointZ/android/.idea/
+
+# iOS
+PointZ/ios/Pods/
+PointZ/ios/.symlinks/
+
+# Rust
+PointZerver/target/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo

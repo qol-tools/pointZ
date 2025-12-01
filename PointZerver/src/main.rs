@@ -4,9 +4,6 @@ mod input;
 mod utils;
 mod status_server;
 
-#[cfg(target_os = "macos")]
-mod platform;
-
 use anyhow::Result;
 
 use crate::features::discovery::discovery_service::DiscoveryService;
