@@ -15,6 +15,37 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  build-apk:
+    name: Build - Android APK
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.24.0'
+          channel: 'stable'
+
+      - name: Install dependencies
+        working-directory: PointZ
+        run: flutter pub get
+
+      - name: Build APK
+        working-directory: PointZ
+        run: flutter build apk --release
+
+      - name: Rename APK
+        run: cp PointZ/build/app/outputs/flutter-apk/app-release.apk pointz-app.apk
+
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: pointz-app.apk
+          path: pointz-app.apk
+          retention-days: 90
+
   build:
     name: Build - ${{ matrix.name_suffix }}
     runs-on: ${{ matrix.os }}
@@ -111,7 +142,7 @@ jobs:
 
   release:
     name: Create Release
-    needs: [build]
+    needs: [build, build-apk]
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -153,13 +184,15 @@ jobs:
         uses: softprops/action-gh-release@v1
         with:
           tag_name: ${{ steps.version.outputs.version }}
-          name: PointZerver ${{ steps.version.outputs.version }}
+          name: PointZ ${{ steps.version.outputs.version }}
           body: |
-            ## PointZerver ${{ steps.version.outputs.version }}
+            ## PointZ ${{ steps.version.outputs.version }}
 
-            Headless server for remote PC control. Designed as a qol-tray plugin.
+            ### Mobile App
 
-            ### Downloads
+            - **Android APK**: `pointz-app.apk`
+
+            ### Server Downloads
 
             - **Linux (x86_64)**:
               - `.deb` package: `pointzerver-linux-x86_64.deb`
