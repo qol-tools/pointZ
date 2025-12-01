@@ -51,8 +51,8 @@ jobs:
         if: matrix.os == 'ubuntu-latest'
         uses: awalsh128/cache-apt-pkgs-action@latest
         with:
-          packages: pkg-config libx11-dev libxi-dev libxcb1-dev libxkbcommon-dev libxkbcommon-x11-dev libxdo-dev
-          version: 1.1
+          packages: pkg-config libx11-dev libxi-dev libxtst-dev libxcb1-dev libxkbcommon-dev libxkbcommon-x11-dev libxdo-dev
+          version: 1.2
 
       - name: Cache Rust dependencies
         uses: swatinem/rust-cache@v2
