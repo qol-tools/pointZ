@@ -73,7 +73,6 @@ class MoveHandler {
     final moveX = dx * _config.mouseSensitivity * acceleration;
     final moveY = dy * _config.mouseSensitivity * acceleration;
 
-    print('[CLIENT] mouseMove: dx=$dx dy=$dy -> moveX=${moveX.toStringAsFixed(2)} moveY=${moveY.toStringAsFixed(2)}');
     await _executor.mouseMove(moveX, moveY);
     _state.previousX = event.x;
     _state.previousY = event.y;
