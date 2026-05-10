@@ -1,6 +1,7 @@
 # PointZ
 
-[![CI](https://github.com/qol-tools/pointz/actions/workflows/ci.yml/badge.svg)](https://github.com/qol-tools/pointz/actions/workflows/ci.yml)
+[![tests](https://github.com/qol-tools/pointz/actions/workflows/tests.yml/badge.svg)](https://github.com/qol-tools/pointz/actions/workflows/tests.yml)
+[![lint](https://github.com/qol-tools/pointz/actions/workflows/lint.yml/badge.svg)](https://github.com/qol-tools/pointz/actions/workflows/lint.yml)
 
 A Flutter mobile client for remote PC control, paired with [PointZerver](https://github.com/qol-tools/pointzerver).
 
