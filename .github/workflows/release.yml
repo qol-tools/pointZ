@@ -92,7 +92,7 @@ jobs:
           body: |
             ## PointZ ${{ steps.version.outputs.version }}
 
-            Mobile client for remote PC control. Works with [PointZerver](https://github.com/qol-tools/pointzerver) running on your computer.
+            Mobile client for remote PC control, paired with the [PointZerver](https://github.com/qol-tools/qol/tree/main/plugins/pointz) plugin for [qol](https://github.com/qol-tools/qol).
 
             ### Platform Support
 
@@ -107,16 +107,12 @@ jobs:
 
             1. Download the app for your platform
             2. Install on your mobile device
-            3. Start [PointZerver](https://github.com/qol-tools/pointzerver) on your PC
+            3. Start PointZerver on your PC
             4. Launch PointZ and connect
 
             ### Server Installation
 
-            Get the server from [PointZerver releases](https://github.com/qol-tools/pointzerver/releases) or install as a [qol-tray](https://github.com/qol-tools/qol-tray) plugin:
-
-            ```bash
-            git clone https://github.com/qol-tools/plugin-pointz ~/.config/qol-tray/plugins/plugin-pointz
-            ```
+            Install the PointZerver plugin from the [qol](https://github.com/qol-tools/qol) plugin store, or build it from [plugins/pointz](https://github.com/qol-tools/qol/tree/main/plugins/pointz) in the qol monorepo.
           files: release_files/*
           draft: false
           prerelease: false

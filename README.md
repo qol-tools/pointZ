@@ -1,9 +1,14 @@
+<div align="center">
+
 # PointZ
 
 [![tests](https://github.com/qol-tools/pointz/actions/workflows/tests.yml/badge.svg)](https://github.com/qol-tools/pointz/actions/workflows/tests.yml)
 [![lint](https://github.com/qol-tools/pointz/actions/workflows/lint.yml/badge.svg)](https://github.com/qol-tools/pointz/actions/workflows/lint.yml)
+[![Build and Release](https://github.com/qol-tools/pointz/actions/workflows/release.yml/badge.svg)](https://github.com/qol-tools/pointz/actions/workflows/release.yml)
 
-A Flutter mobile client for remote PC control, paired with [PointZerver](https://github.com/qol-tools/pointzerver).
+A mobile client for remote PC control, paired with the [PointZerver](https://github.com/qol-tools/qol/tree/main/plugins/pointz) plugin for [qol](https://github.com/qol-tools/qol).
+
+</div>
 
 ## Quick start
 
@@ -19,7 +24,7 @@ Clone to a path without spaces; Flutter and Gradle reject paths containing white
 
 ## About
 
-Touch mouse with acceleration, multi-finger gestures (two-finger right-click, three-finger middle-click), hardware keyboard passthrough, and tap-and-hold drag. Auto-discovers PointZerver instances on the local network.
+The mobile half of qol's PointZ remote-control plugin.
 
 ## License
 
